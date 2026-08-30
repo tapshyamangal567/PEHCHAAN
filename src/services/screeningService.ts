@@ -33,6 +33,55 @@ export interface ConsistencyCheckResponse {
   passport_number_match: boolean | null;
   dob_match: boolean | null;
   expiry_match: boolean | null;
+  name_status?: 'PASS' | 'FAIL' | 'NOT_AVAILABLE';
+  passport_number_status?: 'PASS' | 'FAIL' | 'NOT_AVAILABLE';
+  dob_status?: 'PASS' | 'FAIL' | 'NOT_AVAILABLE';
+  expiry_status?: 'PASS' | 'FAIL' | 'NOT_AVAILABLE';
+  gender_status?: 'PASS' | 'FAIL' | 'NOT_AVAILABLE';
+  nationality_status?: 'PASS' | 'FAIL' | 'NOT_AVAILABLE';
+  overall_status?: 'PASS' | 'REVIEW' | 'FAIL' | 'NOT_AVAILABLE';
+  overall_message?: string;
+}
+
+export interface ValidationCheckItem {
+  status: 'PASS' | 'FAIL' | 'NOT_AVAILABLE' | 'REVIEW';
+  message: string;
+}
+
+export interface ValidationResult {
+  overall_status: 'PASS' | 'REVIEW' | 'FAIL';
+  overall_message: string;
+  checks: Record<string, ValidationCheckItem>;
+  passed: number;
+  failed: number;
+  not_available: number;
+}
+
+export interface SuspiciousRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  score: number;
+}
+
+export interface TamperingSignals {
+  compression_anomaly: number;
+  texture_anomaly: number;
+  noise_anomaly: number;
+  edge_anomaly: number;
+  illumination_anomaly: number;
+}
+
+export interface TamperingAnalysisResult {
+  status: 'LOW_SUSPICION' | 'MEDIUM_SUSPICION' | 'HIGH_SUSPICION' | 'INCONCLUSIVE';
+  score: number;
+  confidence: number | null;
+  signals: TamperingSignals;
+  suspicious_regions: SuspiciousRegion[];
+  reasons: string[];
+  method: string;
+  model_version: string;
 }
 
 export interface ScreeningMetadata {
@@ -48,6 +97,8 @@ export interface PassportScreeningResponse {
   field_confidence: Record<string, FieldConfidenceItem>;
   mrz: MRZResponseData | null;
   consistency: ConsistencyCheckResponse;
+  validation?: ValidationResult | null;
+  tampering_analysis?: TamperingAnalysisResult | null;
   metadata: ScreeningMetadata;
 }
 

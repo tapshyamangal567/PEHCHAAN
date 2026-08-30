@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OfficerStackParamList } from './types';
 import { OfficerTabNavigator } from './OfficerTabNavigator';
 import { PassportUploadScreen } from '../features/screening/screens/PassportUploadScreen';
+import { PassportCameraScreen } from '../features/screening/screens/PassportCameraScreen';
 import { PassportPreparationScreen } from '../features/screening/screens/PassportPreparationScreen';
 import { PassportPreviewScreen } from '../features/screening/screens/PassportPreviewScreen';
 import { DocumentAnalysisScreen } from '../features/screening/screens/DocumentAnalysisScreen';
@@ -21,6 +22,7 @@ export const OfficerStack = () => {
     >
       <Stack.Screen name="OfficerMainTabs" component={OfficerTabNavigator} />
       <Stack.Screen name="PassportUpload" component={PassportUploadScreen} />
+      <Stack.Screen name="PassportCamera" component={PassportCameraScreen} />
       <Stack.Screen name="PassportPreparation" component={PassportPreparationScreen} />
       <Stack.Screen name="PassportPreview" component={PassportPreviewScreen} />
       <Stack.Screen name="DocumentAnalysis" component={DocumentAnalysisScreen} />

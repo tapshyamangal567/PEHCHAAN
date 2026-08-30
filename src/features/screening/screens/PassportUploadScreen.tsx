@@ -133,7 +133,11 @@ export const PassportUploadScreen: React.FC = () => {
       {/* Main Upload Area / Preview Card */}
       <SlideUpView delay={100} style={styles.mainContentArea}>
         {!selectedDoc ? (
-          <PassportUploadZone onPickImage={handlePickImage} isLoading={isPicking} />
+          <PassportUploadZone
+            onScanCamera={() => navigation.navigate('PassportCamera')}
+            onPickImage={handlePickImage}
+            isLoading={isPicking}
+          />
         ) : (
           <PassportPreviewCard
             document={selectedDoc}

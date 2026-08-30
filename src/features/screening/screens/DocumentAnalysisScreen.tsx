@@ -220,9 +220,9 @@ export const DocumentAnalysisScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.titleText}>Analyzing Document</Text>
+        <Text style={styles.titleText}>Analyzing Passport</Text>
         <Text style={styles.subtitleText}>
-          PEHCHAAN is processing your passport image via security API.
+          Extracting document information securely
         </Text>
       </View>
 

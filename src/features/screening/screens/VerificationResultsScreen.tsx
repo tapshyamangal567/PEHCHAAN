@@ -4,6 +4,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { ScreenContainer } from '../../../components/navigation/ScreenContainer';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SecondaryButton } from '../../../components/ui/SecondaryButton';
+import { DocumentValidationCard } from '../components/DocumentValidationCard';
+import { TamperingAnalysisCard } from '../components/TamperingAnalysisCard';
 import { CapturedDocument } from '../types/passportTypes';
 import { PassportScreeningResponse } from '../../../services/screeningService';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
@@ -179,9 +181,22 @@ export const VerificationResultsScreen: React.FC = () => {
         </View>
       </SlideUpView>
 
+      {/* Automated Document Validation Section */}
+      <SlideUpView delay={180}>
+        <DocumentValidationCard validation={screeningResponse?.validation} />
+      </SlideUpView>
+
+      {/* AI-Assisted Document Authenticity / Tampering Analysis Section */}
+      <SlideUpView delay={200}>
+        <TamperingAnalysisCard
+          analysis={screeningResponse?.tampering_analysis}
+          documentUri={document?.uri}
+        />
+      </SlideUpView>
+
       {/* Document Thumbnail Card */}
       {document ? (
-        <SlideUpView delay={200} style={styles.documentCard}>
+        <SlideUpView delay={220} style={styles.documentCard}>
           <Text style={styles.cardHeaderTitle}>PROCESSED PASSPORT IMAGE</Text>
 
           <View style={styles.documentRow}>
@@ -239,9 +254,17 @@ export const VerificationResultsScreen: React.FC = () => {
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <PrimaryButton
-          title="Return to Dashboard"
+          title={
+            screeningResponse?.tampering_analysis?.status === 'HIGH_SUSPICION'
+              ? 'Manual Review Required'
+              : screeningResponse?.tampering_analysis?.status === 'MEDIUM_SUSPICION'
+              ? 'Manual Review Recommended'
+              : screeningResponse?.tampering_analysis?.status === 'INCONCLUSIVE'
+              ? 'Retake Document'
+              : 'Continue Review'
+          }
           onPress={handleReturnDashboard}
-          accessibilityLabel="Return to Officer Dashboard"
+          accessibilityLabel="Officer Action Review Button"
         />
         <SecondaryButton
           title="Start New Screening"

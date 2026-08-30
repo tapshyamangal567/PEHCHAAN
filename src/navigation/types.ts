@@ -19,6 +19,7 @@ export type OfficerStackParamList = {
   OfficerMainTabs: undefined;
   CaseDetail: { caseId: string };
   PassportUpload: undefined;
+  PassportCamera: undefined;
   PassportPreparation: { passportDoc?: SelectedPassportDocument };
   PassportPreview: { document?: CapturedDocument; passportDoc?: SelectedPassportDocument };
   DocumentAnalysis: { document?: CapturedDocument };

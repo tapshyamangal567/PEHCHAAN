@@ -26,14 +26,64 @@ class MRZResponseData(BaseModel):
     checksum_valid: Optional[bool] = Field(default=None, description="Whether all ICAO 9303 check digits are valid")
 
 class ConsistencyCheckResponse(BaseModel):
-    name_match: Optional[bool] = Field(default=None, description="Name match between Visual OCR and MRZ")
-    passport_number_match: Optional[bool] = Field(default=None, description="Passport number match")
-    dob_match: Optional[bool] = Field(default=None, description="Date of birth match")
-    expiry_match: Optional[bool] = Field(default=None, description="Date of expiry match")
+    name_match: Optional[bool] = Field(default=None, description="Name match boolean")
+    passport_number_match: Optional[bool] = Field(default=None, description="Passport number match boolean")
+    dob_match: Optional[bool] = Field(default=None, description="Date of birth match boolean")
+    expiry_match: Optional[bool] = Field(default=None, description="Date of expiry match boolean")
+    name_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Name status: PASS, FAIL, NOT_AVAILABLE")
+    passport_number_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Passport number status")
+    dob_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Date of birth status")
+    expiry_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Date of expiry status")
+    gender_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Gender status")
+    nationality_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Nationality status")
+    overall_status: Optional[str] = Field(default="NOT_AVAILABLE", description="Overall status: PASS, REVIEW, FAIL, NOT_AVAILABLE")
+    overall_message: Optional[str] = Field(default=None, description="Overall consistency message")
 
 class ScreeningMetadata(BaseModel):
     processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
     fields_extracted: int = Field(..., description="Number of non-null fields extracted")
+    mrz_crop_created: Optional[bool] = Field(default=None, description="Debug: Whether MRZ region crop was created")
+    mrz_ocr_variants_tested: Optional[int] = Field(default=None, description="Debug: Number of OCR variants tested")
+    mrz_candidates_detected: Optional[int] = Field(default=None, description="Debug: Number of candidate line pairs detected")
+    best_candidate_score: Optional[float] = Field(default=None, description="Debug: Highest candidate pair score")
+
+class ValidationCheckItem(BaseModel):
+    status: str = Field(..., description="Status: PASS, FAIL, NOT_AVAILABLE, or REVIEW")
+    message: str = Field(..., description="Human readable check message")
+
+class ValidationResult(BaseModel):
+    overall_status: str = Field(..., description="Overall status: PASS, REVIEW, or FAIL")
+    overall_message: str = Field(..., description="Overall summary message")
+    checks: Dict[str, ValidationCheckItem] = Field(default_factory=dict)
+    passed: int = Field(default=0)
+    failed: int = Field(default=0)
+    not_available: int = Field(default=0)
+
+from typing import Optional, Dict, Any, List
+
+class SuspiciousRegion(BaseModel):
+    x: int
+    y: int
+    width: int
+    height: int
+    score: float
+
+class TamperingSignals(BaseModel):
+    compression_anomaly: float = Field(default=0.0)
+    texture_anomaly: float = Field(default=0.0)
+    noise_anomaly: float = Field(default=0.0)
+    edge_anomaly: float = Field(default=0.0)
+    illumination_anomaly: float = Field(default=0.0)
+
+class TamperingAnalysisResult(BaseModel):
+    status: str = Field(..., description="Status: LOW_SUSPICION, MEDIUM_SUSPICION, HIGH_SUSPICION, or INCONCLUSIVE")
+    score: float = Field(..., description="Weighted forensic score between 0.0 and 1.0")
+    confidence: Optional[float] = Field(default=None, description="Model confidence (null for baseline forensic detector)")
+    signals: TamperingSignals = Field(default_factory=TamperingSignals)
+    suspicious_regions: List[SuspiciousRegion] = Field(default_factory=list)
+    reasons: List[str] = Field(default_factory=list)
+    method: str = Field(default="opencv_forensic_baseline")
+    model_version: str = Field(default="baseline-1.0")
 
 class PassportScreeningResponse(BaseModel):
     success: bool = True
@@ -43,6 +93,8 @@ class PassportScreeningResponse(BaseModel):
     field_confidence: Dict[str, FieldConfidenceItem] = Field(default_factory=dict)
     mrz: Optional[MRZResponseData] = None
     consistency: ConsistencyCheckResponse = Field(default_factory=ConsistencyCheckResponse)
+    validation: Optional[ValidationResult] = None
+    tampering_analysis: Optional[TamperingAnalysisResult] = None
     metadata: ScreeningMetadata
 
 class ErrorDetail(BaseModel):

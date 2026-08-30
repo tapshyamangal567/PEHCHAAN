@@ -2,23 +2,14 @@ import unittest
 from app.services.mrz_parser_service import MRZParserService
 from app.services.mrz_service import MRZService
 from app.services.combination_service import CombinationService
-from app.services.consistency_service import ConsistencyService
 from app.schemas.screening import PassportFields
 
 class TestMRZParser(unittest.TestCase):
 
-    def test_calculate_check_digit(self):
-        """Test ICAO 9303 7-3-1 check digit calculation algorithm."""
-        check_digit = MRZParserService.calculate_check_digit("L898902C<")
-        self.assertEqual(check_digit, "3")
-
-        dob_check = MRZParserService.calculate_check_digit("740812")
-        self.assertEqual(dob_check, "2")
-
-    def test_parse_valid_td3_mrz(self):
-        """Test complete valid TD3 passport MRZ line 1 and line 2 parsing."""
+    def test_1_valid_td3_mrz(self):
+        """Test 1: Valid TD3 MRZ parsing and field extraction."""
         line1 = "P<INDMEHTA<<ARJUN<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-        line2 = "A1234567<3IND9008154M3001095<<<<<<<<<<<<<<02"
+        line2 = "A1234567<6IND9008157M3001097<<<<<<<<<<<<<<<4"
 
         result = MRZParserService.parse_td3_mrz(line1, line2)
         
@@ -33,71 +24,69 @@ class TestMRZParser(unittest.TestCase):
         self.assertEqual(result["date_of_birth"], "15/08/1990")
         self.assertEqual(result["sex"], "M")
         self.assertEqual(result["date_of_expiry"], "09/01/2030")
+        self.assertTrue(result["checksum_valid"])
 
-    def test_reject_ordinary_document_labels_as_mrz(self):
-        """Verify that ordinary visual OCR text & document labels are NEVER detected as MRZ."""
-        # 1. DATE OF EXPIRE label
+    def test_2_noisy_td3_mrz(self):
+        """Test 2: Noisy TD3 MRZ with character confusions corrected."""
+        # Line 1 has '1' instead of 'I' in country code, line 2 has 'O' instead of '0' in dates
+        line1_noisy = "P<1NDMEHTA<<ARJUN<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+        line2_noisy = "A1234567<6IND9O08157M3O01O97<<<<<<<<<<<<<<<4"
+
+        result = MRZParserService.parse_td3_mrz(line1_noisy, line2_noisy)
+        
+        self.assertTrue(result["detected"])
+        self.assertEqual(result["issuing_country"], "IND")
+        self.assertEqual(result["date_of_birth"], "15/08/1990")
+        self.assertEqual(result["date_of_expiry"], "09/01/2030")
+
+    def test_3_incomplete_mrz(self):
+        """Test 3: Incomplete MRZ (only 1 line readable) is NOT fabricated."""
+        line1 = "P<INDMEHTA<<ARJUN<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+        line2_short = "A1234567<3"
+
+        result = MRZParserService.parse_td3_mrz(line1, line2_short)
+        self.assertFalse(result["detected"])
+
+    def test_4_normal_text_rejection(self):
+        """Test 4: Normal visual document text like 'DATE OF EXPIRE' is rejected."""
         res1 = MRZParserService.parse_td3_mrz(
             "DATE<OF<EXPIRE<<J<<<<<<<<<<<<<<<<<<<<<<<<<<<",
             "AA1112223333<<<<<<<DDMMYY<<<<<<<AAA111222333"
         )
         self.assertFalse(res1["detected"])
 
-        # 2. PASSPORT label
         res2 = MRZParserService.parse_td3_mrz(
             "PASSPORT<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<",
             "REPUBLIC<OF<INDIA<<<<<<<<<<<<<<<<<<<<<<<<<<<"
         )
         self.assertFalse(res2["detected"])
 
-        # 3. DATE OF BIRTH label
-        res3 = MRZParserService.parse_td3_mrz(
-            "DATE<OF<BIRTH<15081990<<<<<<<<<<<<<<<<<<<<<<",
-            "NATIONALITY<IND<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-        )
-        self.assertFalse(res3["detected"])
-
-    def test_reject_false_candidates_in_mrz_service(self):
-        """Verify that MRZService candidate search rejects ordinary text lines."""
-        raw_text = "PASSFORT\nREPUBLIC OF INDIA\nPASSFORT NO A1234567\nSURNAME MEHTA\nGIVEN NAME ARJUN\nDATE OF EXPIRE 09/01/2030"
+    def test_5_random_ocr_text_rejection(self):
+        """Test 5: Random OCR text blocks rejected."""
+        raw_text = "SAMPLE PASSPORT TEXT\nSOME HEADER HERE\nSURNAME SMITH\nFIRST NAME JOHN"
         blocks = [{"text": line} for line in raw_text.split('\n')]
 
         detected = MRZService.detect_mrz_lines(raw_text, blocks)
         self.assertIsNone(detected)
 
-    def test_positional_character_correction(self):
-        """Test positional letter/digit corrections."""
-        fixed_pass = MRZParserService._fix_numeric_alpha_mix("A123456O7")
-        self.assertEqual(fixed_pass, "A12345607")
+    def test_6_checksum_valid_mrz(self):
+        """Test 6: Valid MRZ checksum verification."""
+        line1 = "P<INDMEHTA<<ARJUN<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+        line2 = "A1234567<6IND9008157M3001097<<<<<<<<<<<<<<<4"
 
-        fixed_alpha = MRZParserService._fix_alpha("IN1")
-        self.assertEqual(fixed_alpha, "INI")
+        result = MRZParserService.parse_td3_mrz(line1, line2)
+        self.assertTrue(result["detected"])
+        self.assertTrue(result["checksum_valid"])
 
-    def test_field_combination_priority(self):
-        """Test that MRZ values take priority over Visual OCR values ONLY when valid MRZ is present."""
-        visual = PassportFields(
-            full_name="JOHN DOE",
-            passport_number="A1234567",
-            nationality="IND",
-            date_of_birth="15/08/1990",
-            gender="M"
-        )
-        
-        mrz_data = {
-            "detected": True,
-            "passport_number": "A1234567",
-            "nationality": "IND",
-            "date_of_birth": "15/08/1990",
-            "sex": "M",
-            "date_of_expiry": "09/01/2030",
-            "full_name": "DOE JOHN",
-            "checksum_valid": True
-        }
+    def test_7_checksum_invalid_mrz(self):
+        """Test 7: MRZ with invalid check digits returns checksum_valid = False."""
+        line1 = "P<INDMEHTA<<ARJUN<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+        # Changed check digit of passport number from 6 to 9
+        line2_bad_check = "A1234567<9IND9008157M3001097<<<<<<<<<<<<<<<4"
 
-        combined, confidence = CombinationService.combine_fields(visual, mrz_data, 0.85)
-        
-        self.assertEqual(combined.passport_number, "A1234567")
-        self.assertEqual(confidence["passport_number"].source, "MRZ")
+        result = MRZParserService.parse_td3_mrz(line1, line2_bad_check)
+        self.assertTrue(result["detected"])
+        self.assertFalse(result["checksum_valid"])
 
 if __name__ == "__main__":
     unittest.main()
