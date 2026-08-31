@@ -1,7 +1,10 @@
+from __future__ import annotations
 import re
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
+
 from app.schemas.screening import PassportFields
+
 
 class ConsistencyService:
     """
@@ -242,5 +245,6 @@ class ConsistencyService:
             "overall_status": overall_status,
             "overall_message": overall_message,
         }
+
 
 consistency_service = ConsistencyService()

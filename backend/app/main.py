@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.screening import router as screening_router
+from app.api.auth import router as auth_router
+from app.api.verifications import router as verifications_router
+from app.api.supervisor import router as supervisor_router
+from app.core.database import check_db_connection
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,19 +28,42 @@ app.add_middleware(
     "/health",
     tags=["health"],
     summary="Health Check Endpoint",
-    description="Returns API status for system monitoring."
+    description="Returns API and database status for system monitoring."
 )
 async def health_check():
+    db_connected = check_db_connection()
     return {
-        "status": "ok",
-        "service": settings.PROJECT_NAME
+        "status": "healthy" if db_connected else "degraded",
+        "service": settings.PROJECT_NAME,
+        "database": "connected" if db_connected else "disconnected",
     }
 
-# Include Screening API router
+# Include existing Screening API router (preserved for backward compatibility)
 app.include_router(
     screening_router,
     prefix="/api/screening",
     tags=["screening"]
+)
+
+# Authentication routes
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["authentication"]
+)
+
+# Verification routes (JWT protected)
+app.include_router(
+    verifications_router,
+    prefix="/api/verifications",
+    tags=["verifications"]
+)
+
+# Supervisor routes (Supervisor/Admin only)
+app.include_router(
+    supervisor_router,
+    prefix="/api/supervisor",
+    tags=["supervisor"]
 )
 
 if __name__ == "__main__":
