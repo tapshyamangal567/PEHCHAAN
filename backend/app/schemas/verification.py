@@ -62,6 +62,22 @@ class FaceVerificationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class FaceMatchResultResponse(BaseModel):
+    status: str
+    similarity_score: float
+    confidence: str
+    face_match: bool
+    reference_face_detected: bool
+    live_face_detected: bool
+    quality: str
+    reason: str
+    recommendation: str
+    model_version: str
+    timestamp: str
+    updated_risk_score: Optional[float] = None
+    updated_risk_level: Optional[str] = None
+
+
 class VerificationDetailResponse(BaseModel):
     """Full verification record with all related data."""
     id: str

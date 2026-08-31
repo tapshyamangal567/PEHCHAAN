@@ -3,15 +3,21 @@ Verification API routes — CRUD for verification records.
 POST reuses existing screening services via verification_service.
 """
 import math
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request, Query, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query, status
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
 from app.models.user import User
 from app.models.verification import VerificationRecord
 from app.models.audit_log import AuditAction
+from app.models.face_verification import FaceVerification
+from app.models.risk_assessment import RiskAssessment
 from app.services.verification_service import run_verification
+from app.services.face_verification_service import face_verification_service
+from app.services.risk_service import compute_risk_score
+from app.services.image_service import image_service
 from app.services.audit_service import create_audit_log
 from app.schemas.screening import PassportScreeningResponse, ErrorResponse, ErrorDetail
 from app.schemas.verification import (
@@ -21,6 +27,7 @@ from app.schemas.verification import (
     ExtractedFieldResponse,
     TamperingAnalysisResponse,
     FaceVerificationResponse,
+    FaceMatchResultResponse,
     PaginatedVerifications,
 )
 from app.schemas.dashboard import AuditLogResponse
@@ -71,6 +78,158 @@ async def create_verification(
                 error=ErrorDetail(
                     code="VERIFICATION_FAILED",
                     message="An unexpected error occurred during verification.",
+                ),
+            ).model_dump(),
+        )
+
+
+@router.post(
+    "/face-match",
+    response_model=FaceMatchResultResponse,
+    responses={
+        400: {"model": ErrorResponse},
+        500: {"model": ErrorResponse},
+    },
+    summary="Verify Live Face Against Passport Portrait",
+    description="Compares live camera capture against passport portrait, computes embedding similarity, updates Risk Assessment, and logs audit record.",
+)
+async def verify_face(
+    request: Request,
+    live_file: UploadFile = File(..., description="Live captured selfie image"),
+    passport_file: Optional[UploadFile] = File(None, description="Passport image file"),
+    verification_id: Optional[str] = Form(None, description="Existing verification ID to link and update risk assessment"),
+    db: Session = Depends(get_db),
+    officer: User = Depends(require_role("OFFICER", "ADMIN")),
+):
+    try:
+        # 1. Read live capture
+        live_bytes = await live_file.read()
+        live_img = image_service.process_upload_bytes(live_bytes, live_file.content_type)
+
+        # 2. Read passport image if provided
+        passport_img = None
+        if passport_file:
+            passport_bytes = await passport_file.read()
+            passport_img = image_service.process_upload_bytes(passport_bytes, passport_file.content_type)
+
+        # 3. Perform face verification
+        match_result = face_verification_service.verify_identity(
+            passport_img=passport_img,
+            live_img=live_img,
+        )
+
+        updated_risk_score = None
+        updated_risk_level = None
+
+        # 4. If verification_id is provided, link and update PostgreSQL record
+        if verification_id:
+            record = db.query(VerificationRecord).filter(
+                VerificationRecord.verification_id == verification_id
+            ).first()
+
+            if record:
+                # Update / create FaceVerification record in DB
+                fv_record = db.query(FaceVerification).filter(
+                    FaceVerification.verification_id == record.id
+                ).first()
+
+                if not fv_record:
+                    fv_record = FaceVerification(
+                        verification_id=record.id,
+                        face_detected=match_result.get("live_face_detected", False),
+                        face_match=match_result.get("face_match"),
+                        similarity_score=match_result.get("similarity_score"),
+                        result=match_result.get("status"),
+                    )
+                    db.add(fv_record)
+                else:
+                    fv_record.face_detected = match_result.get("live_face_detected", False)
+                    fv_record.face_match = match_result.get("face_match")
+                    fv_record.similarity_score = match_result.get("similarity_score")
+                    fv_record.result = match_result.get("status")
+
+                # Recalculate Risk Assessment incorporating face signal
+                new_risk = compute_risk_score(
+                    ocr_confidence=record.ocr_confidence or 0.85,
+                    mrz_detected=record.mrz_detected,
+                    mrz_checksum_valid=record.mrz_checksum_valid,
+                    consistency_name_match=record.consistency_name_match,
+                    consistency_passport_match=record.consistency_passport_match,
+                    consistency_dob_match=record.consistency_dob_match,
+                    consistency_expiry_match=record.consistency_expiry_match,
+                    fields_extracted=record.fields_extracted or 7,
+                    date_of_expiry=record.date_of_expiry,
+                    face_status=match_result.get("status"),
+                    face_similarity_score=match_result.get("similarity_score"),
+                )
+
+                # Update Verification Record & Risk Assessment
+                record.risk_score = new_risk["risk_score"]
+                record.risk_level = new_risk["risk_level"]
+                record.verification_result = new_risk["verification_result"]
+
+                updated_risk_score = new_risk["risk_score"]
+                updated_risk_level = new_risk["risk_level"].value
+
+                risk_record = db.query(RiskAssessment).filter(
+                    RiskAssessment.verification_id == record.id
+                ).first()
+                if risk_record:
+                    risk_record.risk_score = new_risk["risk_score"]
+                    risk_record.risk_level = new_risk["risk_level"]
+                    risk_record.risk_factors = new_risk["risk_factors"]
+
+                # Log Audit action
+                create_audit_log(
+                    db=db,
+                    user_id=officer.id,
+                    action=AuditAction.FACE_VERIFIED if hasattr(AuditAction, 'FACE_VERIFIED') else AuditAction.DOCUMENT_VERIFIED,
+                    verification_id=record.id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent"),
+                    details={
+                        "verification_id": verification_id,
+                        "face_status": match_result.get("status"),
+                        "similarity_score": match_result.get("similarity_score"),
+                        "risk_score": updated_risk_score,
+                    },
+                )
+                db.commit()
+
+        # Construct structured response
+        return FaceMatchResultResponse(
+            status=match_result["status"],
+            similarity_score=match_result["similarity_score"],
+            confidence=match_result["confidence"],
+            face_match=match_result.get("face_match", False),
+            reference_face_detected=match_result["reference_face_detected"],
+            live_face_detected=match_result["live_face_detected"],
+            quality=match_result["quality"],
+            reason=match_result["reason"],
+            recommendation=match_result["recommendation"],
+            model_version=match_result["model_version"],
+            timestamp=match_result["timestamp"],
+            updated_risk_score=updated_risk_score,
+            updated_risk_level=updated_risk_level,
+        )
+
+    except ScreeningException as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                success=False,
+                error=ErrorDetail(code=exc.code, message=exc.message),
+            ).model_dump(),
+        )
+    except Exception as e:
+        db.rollback()
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error=ErrorDetail(
+                    code="FACE_VERIFICATION_FAILED",
+                    message=f"Face verification processing error: {str(e)}",
                 ),
             ).model_dump(),
         )

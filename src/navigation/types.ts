@@ -23,7 +23,8 @@ export type OfficerStackParamList = {
   PassportPreparation: { passportDoc?: SelectedPassportDocument };
   PassportPreview: { document?: CapturedDocument; passportDoc?: SelectedPassportDocument };
   DocumentAnalysis: { document?: CapturedDocument };
-  VerificationResults: { document?: CapturedDocument; screeningResponse?: PassportScreeningResponse };
+  VerificationResults: { document?: CapturedDocument; screeningResponse?: PassportScreeningResponse; faceMatchResult?: any };
+  IdentityVerification: { passportUri?: string; verificationId?: string; document?: CapturedDocument; currentScreeningResponse?: PassportScreeningResponse };
 };
 
 export type SupervisorTabParamList = {

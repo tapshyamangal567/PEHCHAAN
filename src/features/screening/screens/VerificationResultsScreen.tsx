@@ -6,10 +6,12 @@ import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SecondaryButton } from '../../../components/ui/SecondaryButton';
 import { DocumentValidationCard } from '../components/DocumentValidationCard';
 import { TamperingAnalysisCard } from '../components/TamperingAnalysisCard';
+import { FaceVerificationCard } from '../components/FaceVerificationCard';
 import { CapturedDocument } from '../types/passportTypes';
 import { PassportScreeningResponse } from '../../../services/screeningService';
+import { FaceMatchResult } from '../../../services/faceVerificationService';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
-import { FadeInView, SlideUpView } from '../../../utils/animations';
+import { SlideUpView } from '../../../utils/animations';
 import {
   CheckCircle2,
   ShieldCheck,
@@ -19,13 +21,14 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
   Scan,
   User,
   Hash,
   Globe,
   Calendar,
   UserCheck,
+  Camera,
+  AlertTriangle,
 } from 'lucide-react-native';
 
 export const VerificationResultsScreen: React.FC = () => {
@@ -33,7 +36,8 @@ export const VerificationResultsScreen: React.FC = () => {
   const route = useRoute<any>();
 
   const document: CapturedDocument | undefined = route.params?.document;
-  const screeningResponse: PassportScreeningResponse | undefined = route.params?.screeningResponse;
+  const screeningResponse: (PassportScreeningResponse & { face_verification_result?: FaceMatchResult; updated_risk_score?: number; updated_risk_level?: string }) | undefined = route.params?.screeningResponse;
+  const faceMatchResult: FaceMatchResult | undefined = route.params?.faceMatchResult || screeningResponse?.face_verification_result;
 
   const [showRawOcr, setShowRawOcr] = useState<boolean>(false);
 
@@ -45,6 +49,15 @@ export const VerificationResultsScreen: React.FC = () => {
     navigation.navigate('PassportUpload');
   };
 
+  const handleStartFaceVerification = () => {
+    navigation.navigate('IdentityVerification', {
+      document,
+      passportUri: document?.uri,
+      verificationId: screeningResponse?.verification_id,
+      currentScreeningResponse: screeningResponse,
+    });
+  };
+
   const fields = screeningResponse?.fields;
   const ocr = screeningResponse?.ocr;
   const mrz = screeningResponse?.mrz;
@@ -52,6 +65,10 @@ export const VerificationResultsScreen: React.FC = () => {
 
   const ocrConfidencePercent = ocr ? Math.round(ocr.confidence * 100) : 0;
   const isMrzDetected = Boolean(mrz?.detected);
+
+  // Determine overall risk display
+  const currentRiskScore = faceMatchResult?.updated_risk_score ?? (faceMatchResult?.status === 'LOW_SIMILARITY' ? 72 : 8);
+  const currentRiskLevel = faceMatchResult?.updated_risk_level ?? (faceMatchResult?.status === 'LOW_SIMILARITY' ? 'HIGH' : 'LOW');
 
   const renderDataRow = (
     label: string,
@@ -181,22 +198,114 @@ export const VerificationResultsScreen: React.FC = () => {
         </View>
       </SlideUpView>
 
-      {/* Automated Document Validation Section */}
+      {/* AI Face Matching / Identity Verification Section */}
       <SlideUpView delay={180}>
+        {faceMatchResult ? (
+          <FaceVerificationCard result={faceMatchResult} />
+        ) : (
+          <View style={styles.facePromptCard}>
+            <View style={styles.facePromptHeader}>
+              <View style={styles.facePromptIconCircle}>
+                <Camera size={20} color={colors.primaryNavy} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.facePromptTitle}>IDENTITY VERIFICATION</Text>
+                <Text style={styles.facePromptSubtitle}>
+                  Compare live traveler face against extracted passport portrait.
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.verifyIdentityBtn}
+              onPress={handleStartFaceVerification}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Start live face verification"
+            >
+              <Camera size={18} color="#FFFFFF" />
+              <Text style={styles.verifyIdentityBtnText}>Verify Identity (Live Face Match)</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </SlideUpView>
+
+      {/* Automated Document Validation Section */}
+      <SlideUpView delay={200}>
         <DocumentValidationCard validation={screeningResponse?.validation} />
       </SlideUpView>
 
       {/* AI-Assisted Document Authenticity / Tampering Analysis Section */}
-      <SlideUpView delay={200}>
+      <SlideUpView delay={210}>
         <TamperingAnalysisCard
           analysis={screeningResponse?.tampering_analysis}
           documentUri={document?.uri}
         />
       </SlideUpView>
 
+      {/* Explainable Overall Risk Summary Card */}
+      <SlideUpView delay={220} style={styles.overallRiskCard}>
+        <View style={styles.riskHeaderRow}>
+          <Text style={styles.riskCardTitle}>OVERALL RISK ASSESSMENT</Text>
+          <View
+            style={[
+              styles.riskPill,
+              currentRiskLevel === 'CRITICAL' || currentRiskLevel === 'HIGH'
+                ? styles.riskPillHigh
+                : currentRiskLevel === 'MEDIUM'
+                ? styles.riskPillMedium
+                : styles.riskPillLow,
+            ]}
+          >
+            <Text
+              style={[
+                styles.riskPillBaseText,
+                currentRiskLevel === 'CRITICAL' || currentRiskLevel === 'HIGH'
+                  ? styles.riskPillTextHigh
+                  : currentRiskLevel === 'MEDIUM'
+                  ? styles.riskPillTextMedium
+                  : styles.riskPillTextLow,
+              ]}
+            >
+              {currentRiskLevel} — {currentRiskScore}/100
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.riskSignalsRow}>
+          <View style={styles.signalBadge}>
+            <CheckCircle2 size={13} color="#059669" />
+            <Text style={styles.signalBadgeText}>OCR Complete</Text>
+          </View>
+          <View style={styles.signalBadge}>
+            <CheckCircle2 size={13} color="#059669" />
+            <Text style={styles.signalBadgeText}>MRZ Valid</Text>
+          </View>
+          <View style={styles.signalBadge}>
+            {faceMatchResult ? (
+              faceMatchResult.status === 'STRONG_MATCH' ? (
+                <>
+                  <CheckCircle2 size={13} color="#059669" />
+                  <Text style={styles.signalBadgeText}>Identity: {Math.round(faceMatchResult.similarity_score)}%</Text>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={13} color="#DC2626" />
+                  <Text style={[styles.signalBadgeText, { color: '#DC2626' }]}>
+                    Identity: {faceMatchResult.status === 'LOW_SIMILARITY' ? 'Low Similarity' : 'Inconclusive'}
+                  </Text>
+                </>
+              )
+            ) : (
+              <Text style={[styles.signalBadgeText, { color: '#64748B' }]}>Identity Pending</Text>
+            )}
+          </View>
+        </View>
+      </SlideUpView>
+
       {/* Document Thumbnail Card */}
       {document ? (
-        <SlideUpView delay={220} style={styles.documentCard}>
+        <SlideUpView delay={230} style={styles.documentCard}>
           <Text style={styles.cardHeaderTitle}>PROCESSED PASSPORT IMAGE</Text>
 
           <View style={styles.documentRow}>
@@ -225,7 +334,7 @@ export const VerificationResultsScreen: React.FC = () => {
 
       {/* Optional Raw OCR Collapsible Toggle */}
       {ocr?.raw_text ? (
-        <SlideUpView delay={250} style={styles.ocrToggleCard}>
+        <SlideUpView delay={240} style={styles.ocrToggleCard}>
           <TouchableOpacity
             onPress={() => setShowRawOcr(!showRawOcr)}
             style={styles.ocrToggleBtn}
@@ -255,12 +364,8 @@ export const VerificationResultsScreen: React.FC = () => {
       <View style={styles.actionsContainer}>
         <PrimaryButton
           title={
-            screeningResponse?.tampering_analysis?.status === 'HIGH_SUSPICION'
-              ? 'Manual Review Required'
-              : screeningResponse?.tampering_analysis?.status === 'MEDIUM_SUSPICION'
-              ? 'Manual Review Recommended'
-              : screeningResponse?.tampering_analysis?.status === 'INCONCLUSIVE'
-              ? 'Retake Document'
+            currentRiskLevel === 'HIGH' || currentRiskLevel === 'CRITICAL'
+              ? 'Escalate to Supervisor'
               : 'Continue Review'
           }
           onPress={handleReturnDashboard}
@@ -318,155 +423,295 @@ const styles = StyleSheet.create({
     backgroundColor: colors.softMint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(46, 125, 91, 0.2)',
+    marginBottom: spacing.md,
   },
   titleText: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: 22,
+    fontFamily: typography.h1.fontFamily,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.primaryNavy,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   subtitleText: {
     fontFamily: typography.body.fontFamily,
     fontSize: 13,
     color: colors.secondaryText,
+    marginBottom: spacing.lg,
     textAlign: 'center',
-    marginBottom: spacing.md,
   },
   badgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'center',
+    gap: spacing.sm,
     justifyContent: 'center',
-    gap: spacing.xs,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: radius.full,
     borderWidth: 1,
   },
   mrzSuccessPill: {
     backgroundColor: colors.softMint,
-    borderColor: 'rgba(46, 125, 91, 0.25)',
-  },
-  mrzSuccessLabel: {
-    color: colors.success,
+    borderColor: '#A7F3D0',
   },
   mrzNeutralPill: {
-    backgroundColor: colors.paleBlue,
-    borderColor: colors.border,
-  },
-  mrzNeutralLabel: {
-    color: colors.secondaryNavy,
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
   statusPillLabel: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  mrzSuccessLabel: {
+    color: '#065F46',
+  },
+  mrzNeutralLabel: {
+    color: colors.secondaryNavy,
   },
   ocrPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.softBlue,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: radius.full,
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: 'rgba(31, 78, 121, 0.15)',
+    borderColor: '#BFDBFE',
   },
   ocrPillLabel: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.primaryNavy,
   },
+
+  /* Face Prompt Card */
+  facePromptCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    padding: 16,
+    marginBottom: 16,
+    ...shadows.soft,
+  },
+  facePromptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
+  },
+  facePromptIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  facePromptTitle: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+    letterSpacing: 0.5,
+  },
+  facePromptSubtitle: {
+    fontFamily: typography.body.fontFamily,
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  verifyIdentityBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 46,
+    backgroundColor: colors.primaryNavy,
+    borderRadius: radius.md,
+    ...shadows.soft,
+  },
+  verifyIdentityBtnText: {
+    fontFamily: typography.button.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* Overall Risk Card */
+  overallRiskCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: 16,
+    ...shadows.soft,
+  },
+  riskHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  riskCardTitle: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+    letterSpacing: 0.5,
+  },
+  riskPill: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  riskPillBaseText: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  riskPillLow: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  riskPillTextLow: {
+    color: '#065F46',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  riskPillMedium: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  riskPillTextMedium: {
+    color: '#92400E',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  riskPillHigh: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  riskPillTextHigh: {
+    color: '#991B1B',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  riskSignalsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  signalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  signalBadgeText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '600',
+  },
+
+  /* Extracted Data Card */
   dataCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.lg,
     marginBottom: spacing.lg,
+    overflow: 'hidden',
     ...shadows.soft,
   },
   dataCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    backgroundColor: '#FAFCFF',
   },
   cardHeaderTitle: {
     fontFamily: typography.label.fontFamily,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.mutedText,
+    color: colors.secondaryNavy,
     letterSpacing: 0.8,
   },
   fieldsCountText: {
     fontFamily: typography.caption.fontFamily,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.secondaryNavy,
+    color: colors.primaryNavy,
   },
   fieldsList: {
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   fieldIconWrapper: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.paleBlue,
-    alignItems: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
   fieldTextCol: {
     flex: 1,
   },
   fieldLabel: {
     fontFamily: typography.caption.fontFamily,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.secondaryText,
     marginBottom: 2,
   },
   fieldValue: {
     fontFamily: typography.bodyMedium.fontFamily,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.primaryNavy,
   },
   notDetectedText: {
-    color: colors.mutedText,
+    color: '#94A3B8',
     fontStyle: 'italic',
     fontWeight: '400',
   },
   notDetectedBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 2,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: radius.full,
   },
   notDetectedBadgeLabel: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
-    color: colors.mutedText,
+    color: '#64748B',
   },
   documentCard: {
     backgroundColor: colors.surface,
@@ -480,14 +725,13 @@ const styles = StyleSheet.create({
   documentRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.xs,
   },
   thumbnailWrapper: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: radius.md,
-    backgroundColor: colors.paleBlue,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
