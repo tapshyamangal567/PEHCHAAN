@@ -97,10 +97,10 @@ def login(
     if login_data.role:
         expected_role = login_data.role.strip().upper()
         if user.role.value != expected_role and user.role.value != "ADMIN":
-            role_label = "Investigating Officer" if user.role.value == "OFFICER" else "Supervisor"
+            role_label = "Supervisor" if user.role.value == "SUPERVISOR" else "Officer"
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access Denied: This account is registered as a {role_label}. Please select the '{role_label}' tab to sign in.",
+                detail=f"This account is registered as {role_label}. Please select {role_label} to continue.",
             )
 
     # Create JWT token with user identity and role

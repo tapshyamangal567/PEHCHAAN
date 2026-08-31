@@ -16,16 +16,20 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react-native';
+import { Eye, EyeOff, AlertCircle, Shield, UserCheck } from 'lucide-react-native';
 import { AuthStackParamList } from '../../../navigation/types';
 import { AppLogo } from '../../../components/ui/AppLogo';
-import { colors, typography, spacing, radius, shadows } from '../../../theme';
+import { colors, typography, radius, shadows } from '../../../theme';
+import { UserRole } from '../../../types/auth';
 import { AuthService } from '../../../services/authService';
 
 type LoginNavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 export const LoginScreen = () => {
   const navigation = useNavigation<LoginNavProp>();
+
+  // Selected Role (Default: OFFICER)
+  const [selectedRole, setSelectedRole] = useState<UserRole>('OFFICER');
 
   // Input States
   const [userId, setUserId] = useState('');
@@ -38,7 +42,7 @@ export const LoginScreen = () => {
   const [passwordError, setPasswordError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Refs for seamless keyboard navigation
+  // Refs for keyboard navigation
   const userIdRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
@@ -47,7 +51,7 @@ export const LoginScreen = () => {
     setErrorMessage('');
 
     if (!userId.trim()) {
-      setUserIdError('Please enter your User ID.');
+      setUserIdError('Please enter your Official ID or Email.');
       isValid = false;
     } else {
       setUserIdError('');
@@ -70,8 +74,9 @@ export const LoginScreen = () => {
       await AuthService.login({
         username: userId.trim(),
         password: password,
+        role: selectedRole,
       });
-      // Navigation is automatically handled by RootNavigator based on role returned by backend
+      // Navigation is automatically handled by RootNavigator based on the authenticated backend role
     } catch (error: any) {
       setErrorMessage(error.message || 'Invalid User ID or password.');
     } finally {
@@ -94,11 +99,12 @@ export const LoginScreen = () => {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.contentContainer}>
-              {/* Header: PEHCHAAN Branding */}
+              {/* Header: Logo, Title, Welcome Back */}
               <View style={styles.headerContainer}>
                 <AppLogo size="md" align="center" showTagline={false} />
                 <Text style={styles.brandTitle}>PEHCHAAN</Text>
-                <Text style={styles.brandSubtitle}>Secure Personnel Access</Text>
+                <Text style={styles.welcomeTitle}>Welcome Back</Text>
+                <Text style={styles.welcomeSubtitle}>Sign in to continue</Text>
               </View>
 
               {/* General Error Banner */}
@@ -111,9 +117,9 @@ export const LoginScreen = () => {
 
               {/* Form Section */}
               <View style={styles.formContainer}>
-                {/* 1. Official User ID Field */}
+                {/* 1. Official ID / Email Input */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Official User ID</Text>
+                  <Text style={styles.label}>Email / Officer ID</Text>
                   <TextInput
                     ref={userIdRef}
                     value={userId}
@@ -122,7 +128,7 @@ export const LoginScreen = () => {
                       if (userIdError) setUserIdError('');
                       if (errorMessage) setErrorMessage('');
                     }}
-                    placeholder="Enter your User ID"
+                    placeholder="Enter your Official ID or Email"
                     placeholderTextColor="#94A3B8"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -135,7 +141,7 @@ export const LoginScreen = () => {
                   {!!userIdError && <Text style={styles.fieldErrorText}>{userIdError}</Text>}
                 </View>
 
-                {/* 2. Password Field */}
+                {/* 2. Password Input */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Password</Text>
                   <View style={[styles.passwordWrapper, !!passwordError && styles.inputError]}>
@@ -174,7 +180,67 @@ export const LoginScreen = () => {
                   {!!passwordError && <Text style={styles.fieldErrorText}>{passwordError}</Text>}
                 </View>
 
-                {/* 3. Login Button */}
+                {/* 3. Role Selection: Login as (Above the Login button) */}
+                <View style={styles.roleSelectionContainer}>
+                  <Text style={styles.roleSectionLabel}>Login as</Text>
+                  <View style={styles.roleSelectionRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.roleButton,
+                        selectedRole === 'OFFICER' && styles.roleButtonActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedRole('OFFICER');
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selectedRole === 'OFFICER' }}
+                    >
+                      <Shield
+                        size={18}
+                        color={selectedRole === 'OFFICER' ? colors.primaryNavy : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.roleButtonText,
+                          selectedRole === 'OFFICER' && styles.roleButtonTextActive,
+                        ]}
+                      >
+                        Officer
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.roleButton,
+                        selectedRole === 'SUPERVISOR' && styles.roleButtonActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedRole('SUPERVISOR');
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selectedRole === 'SUPERVISOR' }}
+                    >
+                      <UserCheck
+                        size={18}
+                        color={selectedRole === 'SUPERVISOR' ? colors.primaryNavy : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.roleButtonText,
+                          selectedRole === 'SUPERVISOR' && styles.roleButtonTextActive,
+                        ]}
+                      >
+                        Supervisor
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* 4. Login Button */}
                 <TouchableOpacity
                   onPress={handleLogin}
                   disabled={loading}
@@ -235,7 +301,7 @@ const styles = StyleSheet.create({
   /* Header */
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   brandTitle: {
     fontFamily: typography.h1.fontFamily,
@@ -246,11 +312,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  brandSubtitle: {
+  welcomeTitle: {
+    fontFamily: typography.h2.fontFamily,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  welcomeSubtitle: {
     fontFamily: typography.body.fontFamily,
     fontSize: 14,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'center',
   },
 
@@ -264,7 +338,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 20,
+    marginBottom: 16,
     gap: 8,
   },
   errorBannerText: {
@@ -277,7 +351,7 @@ const styles = StyleSheet.create({
 
   /* Form */
   formContainer: {
-    gap: 18,
+    gap: 16,
   },
   inputGroup: {
     gap: 6,
@@ -329,6 +403,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.danger,
     marginTop: 2,
+  },
+
+  /* Role Selection */
+  roleSelectionContainer: {
+    gap: 6,
+    marginTop: 2,
+  },
+  roleSectionLabel: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  roleSelectionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  roleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  roleButtonActive: {
+    borderWidth: 1.5,
+    borderColor: colors.primaryNavy,
+    backgroundColor: '#EFF6FF',
+  },
+  roleButtonText: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  roleButtonTextActive: {
+    color: colors.primaryNavy,
+    fontWeight: '700',
   },
 
   /* Login Button */
