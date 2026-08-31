@@ -15,6 +15,8 @@ export type OfficerTabParamList = {
   Profile: undefined;
 };
 
+import { FaceVerificationResponse } from '../services/faceVerificationService';
+
 export type OfficerStackParamList = {
   OfficerMainTabs: undefined;
   CaseDetail: { caseId: string };
@@ -24,6 +26,17 @@ export type OfficerStackParamList = {
   PassportPreview: { document?: CapturedDocument; passportDoc?: SelectedPassportDocument };
   DocumentAnalysis: { document?: CapturedDocument };
   VerificationResults: { document?: CapturedDocument; screeningResponse?: PassportScreeningResponse };
+  FaceVerification: { document?: CapturedDocument; screeningResponse?: PassportScreeningResponse };
+  FaceVerificationResult: {
+    document?: CapturedDocument;
+    verificationResponse?: FaceVerificationResponse;
+    liveFaceUri?: string;
+  };
+  RiskAssessment: {
+    document?: CapturedDocument;
+    screeningResponse?: PassportScreeningResponse;
+    verificationResponse?: FaceVerificationResponse;
+  };
 };
 
 export type SupervisorTabParamList = {

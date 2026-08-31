@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.screening import router as screening_router
+from app.api.face_verification import router as face_verification_router
+from app.api.risk import router as risk_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -39,6 +41,22 @@ app.include_router(
     tags=["screening"]
 )
 
+# Include Face Verification API router
+app.include_router(
+    face_verification_router,
+    prefix="/api/verification",
+    tags=["verification"]
+)
+
+# Include Risk Assessment API router
+app.include_router(
+    risk_router,
+    prefix="/api/risk",
+    tags=["risk"]
+)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+
+

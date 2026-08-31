@@ -45,6 +45,10 @@ export const VerificationResultsScreen: React.FC = () => {
     navigation.navigate('PassportUpload');
   };
 
+  const handleVerifyPerson = () => {
+    navigation.navigate('FaceVerification', { document, screeningResponse });
+  };
+
   const fields = screeningResponse?.fields;
   const ocr = screeningResponse?.ocr;
   const mrz = screeningResponse?.mrz;
@@ -254,17 +258,22 @@ export const VerificationResultsScreen: React.FC = () => {
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
         <PrimaryButton
+          title="Verify Person"
+          onPress={handleVerifyPerson}
+          icon={<UserCheck size={18} color="#FFFFFF" />}
+          accessibilityLabel="Proceed to live face verification"
+        />
+        <SecondaryButton
           title={
             screeningResponse?.tampering_analysis?.status === 'HIGH_SUSPICION'
               ? 'Manual Review Required'
               : screeningResponse?.tampering_analysis?.status === 'MEDIUM_SUSPICION'
               ? 'Manual Review Recommended'
-              : screeningResponse?.tampering_analysis?.status === 'INCONCLUSIVE'
-              ? 'Retake Document'
-              : 'Continue Review'
+              : 'Return to Dashboard'
           }
           onPress={handleReturnDashboard}
           accessibilityLabel="Officer Action Review Button"
+          style={styles.secondaryBtn}
         />
         <SecondaryButton
           title="Start New Screening"
