@@ -9,7 +9,7 @@ import { Divider } from '../../../components/ui/Divider';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { colors, typography, spacing } from '../../../theme';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { LogOut, MapPin, BadgeCheck, Mail, ShieldAlert } from 'lucide-react-native';
+import { LogOut, MapPin, BadgeCheck, Mail } from 'lucide-react-native';
 
 export const SupervisorProfileScreen = () => {
   const { user, logout } = useAuthStore();
@@ -20,9 +20,9 @@ export const SupervisorProfileScreen = () => {
 
       <PremiumCard style={styles.profileCard}>
         <View style={styles.avatarRow}>
-          <Avatar name={user?.name || 'Priya Sharma'} size={64} />
+          <Avatar name={user?.name || user?.username || 'Supervisor'} size={64} />
           <View style={styles.userMetaColumn}>
-            <Text style={typography.h2}>{user?.name || 'Priya Sharma'}</Text>
+            <Text style={typography.h2}>{user?.name || user?.username || 'Supervisor Authority'}</Text>
             <Text style={typography.subtitle}>{user?.role || 'SUPERVISOR'}</Text>
             <View style={styles.badgeRow}>
               <StatusBadge status="ACTIVE" size="sm" />
@@ -39,7 +39,7 @@ export const SupervisorProfileScreen = () => {
           <View style={styles.detailTextColumn}>
             <Text style={typography.caption}>SUPERVISOR BADGE ID</Text>
             <Text style={[typography.bodyMedium, styles.detailValue]}>
-              {user?.badgeId || 'IND-SUP-1090'}
+              {user?.badgeId || user?.username || 'N/A'}
             </Text>
           </View>
         </View>
@@ -63,7 +63,7 @@ export const SupervisorProfileScreen = () => {
           <View style={styles.detailTextColumn}>
             <Text style={typography.caption}>GOVERNMENT EMAIL</Text>
             <Text style={[typography.bodyMedium, styles.detailValue]}>
-              {user?.email || 'priya.sharma@border.pehchaan.gov.in'}
+              {user?.email || `${user?.username?.toLowerCase() || 'supervisor'}@pehchaan.gov.in`}
             </Text>
           </View>
         </View>

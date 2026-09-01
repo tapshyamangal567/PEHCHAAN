@@ -7,6 +7,7 @@ from app.api.risk import router as risk_router
 from app.api.auth import router as auth_router
 from app.api.verifications import router as verifications_router
 from app.api.supervisor import router as supervisor_router
+from app.api.dashboard import router as dashboard_router
 from app.api.blockchain import router as blockchain_router
 from app.core.database import check_db_connection
 
@@ -91,6 +92,13 @@ app.include_router(
     supervisor_router,
     prefix="/api/supervisor",
     tags=["supervisor"]
+)
+
+# Dashboard routes (Officer / Supervisor database-driven statistics)
+app.include_router(
+    dashboard_router,
+    prefix="/api/dashboard",
+    tags=["dashboard"]
 )
 
 # Blockchain Integrity routes (Polygon Amoy)

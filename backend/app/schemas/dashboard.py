@@ -1,9 +1,74 @@
 """
-Dashboard Pydantic schemas — for supervisor views.
+Dashboard Pydantic schemas — for database-driven officer and supervisor views.
 """
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
+
+
+class RiskDistribution(BaseModel):
+    low_percentage: int
+    medium_percentage: int
+    high_percentage: int
+
+
+class DashboardSummaryResponse(BaseModel):
+    screened_today: int
+    cleared_today: int
+    flagged_today: int
+    under_review_today: int
+    total_verifications: int
+    pending_review_count: int
+    active_officers_count: int
+    risk_distribution: RiskDistribution
+
+
+class DashboardCaseItem(BaseModel):
+    id: str
+    case_id: str
+    document_type: str
+    holder_name: str
+    passport_number: str
+    nationality: str
+    risk_level: str
+    status: str
+    risk_score: int
+    match_score: int
+    timestamp: str
+    created_at: datetime
+    officer_name: Optional[str] = None
+    officer_badge: Optional[str] = None
+    reason: Optional[str] = None
+    mrz_status: Optional[str] = None
+    watchlist_match: Optional[bool] = None
+
+
+class DashboardAlertItem(BaseModel):
+    id: str
+    case_id: str
+    title: str
+    description: str
+    risk_level: str
+    timestamp: str
+    passport_number: Optional[str] = None
+    nationality: Optional[str] = None
+
+
+class ActiveOfficerActivity(BaseModel):
+    id: str
+    name: str
+    badge_id: str
+    screenings_today: int
+    total_verifications: int
+    status: str
+    last_active: str
+
+
+class DashboardTrendItem(BaseModel):
+    date: str
+    total: int
+    cleared: int
+    flagged: int
 
 
 class DashboardStats(BaseModel):

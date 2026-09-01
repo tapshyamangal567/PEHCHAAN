@@ -7,9 +7,9 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { Divider } from '../../../components/ui/Divider';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { colors, typography, spacing, radius } from '../../../theme';
+import { colors, typography, spacing } from '../../../theme';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { LogOut, Shield, MapPin, BadgeCheck, Mail } from 'lucide-react-native';
+import { LogOut, MapPin, BadgeCheck, Mail } from 'lucide-react-native';
 
 export const OfficerProfileScreen = () => {
   const { user, logout } = useAuthStore();
@@ -20,9 +20,9 @@ export const OfficerProfileScreen = () => {
 
       <PremiumCard style={styles.profileCard}>
         <View style={styles.avatarRow}>
-          <Avatar name={user?.name || 'Arjun Mehta'} size={64} />
+          <Avatar name={user?.name || user?.username || 'Officer'} size={64} />
           <View style={styles.userMetaColumn}>
-            <Text style={typography.h2}>{user?.name || 'Arjun Mehta'}</Text>
+            <Text style={typography.h2}>{user?.name || user?.username || 'Investigating Officer'}</Text>
             <Text style={typography.subtitle}>{user?.role || 'OFFICER'}</Text>
             <View style={styles.badgeRow}>
               <StatusBadge status="ACTIVE" size="sm" />
@@ -37,9 +37,9 @@ export const OfficerProfileScreen = () => {
             <BadgeCheck size={18} color={colors.primaryRose} />
           </View>
           <View style={styles.detailTextColumn}>
-            <Text style={typography.caption}>BADGE ID</Text>
+            <Text style={typography.caption}>OFFICIAL / BADGE ID</Text>
             <Text style={[typography.bodyMedium, styles.detailValue]}>
-              {user?.badgeId || 'IND-SEC-8842'}
+              {user?.badgeId || user?.username || 'N/A'}
             </Text>
           </View>
         </View>
@@ -49,7 +49,7 @@ export const OfficerProfileScreen = () => {
             <MapPin size={18} color={colors.primaryRose} />
           </View>
           <View style={styles.detailTextColumn}>
-            <Text style={typography.caption}>CHECKPOINT</Text>
+            <Text style={typography.caption}>ASSIGNED CHECKPOINT</Text>
             <Text style={[typography.bodyMedium, styles.detailValue]}>
               {user?.checkpoint || 'Checkpoint Alpha'}
             </Text>
@@ -63,7 +63,7 @@ export const OfficerProfileScreen = () => {
           <View style={styles.detailTextColumn}>
             <Text style={typography.caption}>GOVERNMENT EMAIL</Text>
             <Text style={[typography.bodyMedium, styles.detailValue]}>
-              {user?.email || 'arjun.mehta@border.pehchaan.gov.in'}
+              {user?.email || `${user?.username?.toLowerCase() || 'officer'}@pehchaan.gov.in`}
             </Text>
           </View>
         </View>
