@@ -12,7 +12,8 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (__DEV__) {
-      console.log(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+      const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
+      console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
     }
     const token = useAuthStore.getState().token;
     if (token && config.headers) {
@@ -22,7 +23,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     if (__DEV__) {
-      console.log('[API] Request Error:', error.message);
+      console.log('[API Request Error]:', error.message);
     }
     return Promise.reject(error);
   }
@@ -32,17 +33,18 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     if (__DEV__) {
-      console.log(`[API] Response ${response.status} from ${response.config.url}`);
+      console.log(`[API Response] HTTP ${response.status} from ${response.config.baseURL || ''}${response.config.url || ''}`);
     }
     return response;
   },
   (error) => {
     if (__DEV__) {
-      console.log(
-        `[API] Response Error ${error.response?.status || 'Network Error'} from ${
-          error.config?.url || 'unknown'
-        }`
-      );
+      const status = error.response?.status;
+      const url = `${error.config?.baseURL || ''}${error.config?.url || ''}`;
+      console.log(`[API Response Error] HTTP ${status || error.code || 'Network Error'} from ${url}`);
+      if (error.response?.data) {
+        console.log('[API Error Data]:', JSON.stringify(error.response.data));
+      }
     }
     if (error.response?.status === 401) {
       // If unauthorized on protected endpoint (and not login endpoint), logout

@@ -23,6 +23,7 @@ engine = create_engine(
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,  # Verify connections before use
+    pool_recycle=300,    # Recycle connections every 5 minutes to prevent stale/dropped TCP sockets
     echo=False,
 )
 

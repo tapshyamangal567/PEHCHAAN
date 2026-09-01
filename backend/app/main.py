@@ -7,6 +7,7 @@ from app.api.risk import router as risk_router
 from app.api.auth import router as auth_router
 from app.api.verifications import router as verifications_router
 from app.api.supervisor import router as supervisor_router
+from app.api.blockchain import router as blockchain_router
 from app.core.database import check_db_connection
 
 
@@ -92,13 +93,19 @@ app.include_router(
     tags=["supervisor"]
 )
 
+# Blockchain Integrity routes (Polygon Amoy)
+app.include_router(
+    blockchain_router,
+    prefix="/api",
+    tags=["blockchain"]
+)
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
         "app.main:app",
-        host="127.0.0.1",
-        port=8000,
+        host="0.0.0.0",
+        port=8001,
         reload=True
-    )
+    )

@@ -36,18 +36,26 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         return 'OFFLINE';
       }
 
-      // Check backend reachability with lightweight health probe (5s timeout)
+      // Check backend reachability with lightweight health probe (4s timeout)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       try {
-        const response = await fetch(`${API_BASE_URL}/docs`, {
+        const probeUrl = `${API_BASE_URL}/health`;
+        if (__DEV__) {
+          console.log(`[Network Probe] Testing reachability at: ${probeUrl}`);
+        }
+
+        const response = await fetch(probeUrl, {
           method: 'GET',
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
 
-        if (response.ok || response.status === 200 || response.status === 404) {
+        if (response.ok || response.status === 200) {
+          if (__DEV__) {
+            console.log(`[Network Probe] Backend reached successfully (HTTP ${response.status})`);
+          }
           set({
             status: 'ONLINE',
             isInternetReachable: true,
@@ -56,6 +64,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           });
           return 'ONLINE';
         } else {
+          if (__DEV__) {
+            console.warn(`[Network Probe] Backend returned non-200 status (HTTP ${response.status})`);
+          }
           set({
             status: 'LIMITED',
             isInternetReachable: true,
@@ -64,8 +75,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           });
           return 'LIMITED';
         }
-      } catch (fetchErr) {
+      } catch (fetchErr: any) {
         clearTimeout(timeoutId);
+        if (__DEV__) {
+          console.warn(`[Network Probe] Backend unreachable at ${API_BASE_URL}:`, fetchErr?.message || fetchErr);
+        }
         // Internet is connected, but backend server is unreachable
         set({
           status: 'LIMITED',

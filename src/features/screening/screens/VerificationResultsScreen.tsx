@@ -16,7 +16,7 @@ import { NetworkStatusIndicator } from '../../../components/ui/NetworkStatusIndi
 import { DocumentValidationCard } from '../components/DocumentValidationCard';
 import { TamperingAnalysisCard } from '../components/TamperingAnalysisCard';
 import { FaceVerificationCard } from '../components/FaceVerificationCard';
-
+import { BlockchainIntegrityCard } from '../components/BlockchainIntegrityCard';
 import { CapturedDocument } from '../types/passportTypes';
 import { PassportScreeningResponse } from '../../../services/screeningService';
 import { FaceMatchResult } from '../../../services/faceVerificationService';
@@ -635,6 +635,14 @@ export const VerificationResultsScreen: React.FC = () => {
         </View>
       </SlideUpView>
 
+      {/* Blockchain Integrity Layer (Polygon Amoy) */}
+      <SlideUpView delay={220}>
+        <BlockchainIntegrityCard
+          verificationId={screeningResponse?.verification_id}
+          blockchainData={(screeningResponse as any)?.blockchain}
+          isOfflineMode={isOfflineMode}
+        />
+      </SlideUpView>
 
       {/* Document Thumbnail */}
       {document ? (

@@ -5,7 +5,7 @@ POST reuses existing screening services via verification_service.
 import math
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query, status
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List, Dict
 
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role
@@ -492,7 +492,7 @@ def get_risk_assessment(
 
 @router.get(
     "/{verification_id}/audit",
-    response_model=list[AuditLogResponse],
+    response_model=List[AuditLogResponse],
     summary="Get Audit Trail for a Verification (Supervisor only)",
 )
 def get_verification_audit(
