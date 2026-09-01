@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
-import { ChevronRight, ShieldCheck } from 'lucide-react-native';
+import { ChevronRight, Shield } from 'lucide-react-native';
 
 interface RiskOverviewCardProps {
   low: number;
@@ -16,94 +16,117 @@ export const RiskOverviewCard: React.FC<RiskOverviewCardProps> = ({
   high = 0,
   onPress,
 }) => {
-  // If all are zero (empty database), render a subtle placeholder bar
   const total = low + medium + high;
   const isZero = total === 0;
 
   return (
-    <TouchableOpacity
-      activeOpacity={onPress ? 0.75 : 1}
-      onPress={onPress}
-      style={styles.card}
-    >
+    <View style={styles.card}>
+      {/* Header Row */}
       <View style={styles.headerRow}>
         <View style={styles.titleWithIcon}>
-          <ShieldCheck size={16} color={colors.primaryNavy} />
-          <Text style={[typography.bodyMedium, styles.title]}>Risk Distribution</Text>
+          <Shield size={16} color="#0F172A" />
+          <Text style={styles.title}>Risk Distribution</Text>
         </View>
         {onPress && (
-          <View style={styles.rightAction}>
+          <TouchableOpacity onPress={onPress} style={styles.rightAction} activeOpacity={0.7}>
             <Text style={styles.viewText}>View Cases</Text>
-            <ChevronRight size={14} color={colors.secondaryNavy} />
-          </View>
+            <ChevronRight size={14} color="#1D4ED8" />
+          </TouchableOpacity>
         )}
       </View>
 
-      {/* Segmented Horizontal Progress Bar */}
+      {/* Segmented Progress Bar */}
       <View style={styles.barTrack}>
         {isZero ? (
-          <View style={[styles.barSegment, { width: '100%', backgroundColor: colors.surfaceSubtle }]} />
+          <View style={[styles.barSegment, { width: '100%', backgroundColor: '#E2E8F0' }]} />
         ) : (
           <>
             {low > 0 && (
-              <View style={[styles.barSegment, { width: `${low}%`, backgroundColor: colors.success }]} />
+              <View
+                style={[
+                  styles.barSegment,
+                  { width: `${low}%`, backgroundColor: '#10B981' },
+                ]}
+              />
             )}
             {medium > 0 && (
-              <View style={[styles.barSegment, { width: `${medium}%`, backgroundColor: colors.warning }]} />
+              <View
+                style={[
+                  styles.barSegment,
+                  { width: `${medium}%`, backgroundColor: '#F59E0B' },
+                ]}
+              />
             )}
             {high > 0 && (
-              <View style={[styles.barSegment, { width: `${high}%`, backgroundColor: colors.danger }]} />
+              <View
+                style={[
+                  styles.barSegment,
+                  { width: `${high}%`, backgroundColor: '#DC2626' },
+                ]}
+              />
             )}
           </>
         )}
       </View>
 
-      {/* Legend & Stats */}
+      {/* Legend Column Items */}
       <View style={styles.legendRow}>
-        <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: colors.success }]} />
-          <Text style={styles.legendLabel}>LOW <Text style={styles.legendValue}>{low}%</Text></Text>
+        {/* Low */}
+        <View style={styles.legendColumn}>
+          <View style={styles.legendLabelRow}>
+            <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
+            <Text style={styles.legendLabel}>LOW</Text>
+          </View>
+          <Text style={styles.legendPercent}>{low}%</Text>
         </View>
 
-        <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: colors.warning }]} />
-          <Text style={styles.legendLabel}>MEDIUM <Text style={styles.legendValue}>{medium}%</Text></Text>
+        {/* Medium */}
+        <View style={styles.legendColumn}>
+          <View style={styles.legendLabelRow}>
+            <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
+            <Text style={styles.legendLabel}>MEDIUM</Text>
+          </View>
+          <Text style={styles.legendPercent}>{medium}%</Text>
         </View>
 
-        <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: colors.danger }]} />
-          <Text style={styles.legendLabel}>HIGH <Text style={styles.legendValue}>{high}%</Text></Text>
+        {/* High */}
+        <View style={styles.legendColumn}>
+          <View style={styles.legendLabelRow}>
+            <View style={[styles.dot, { backgroundColor: '#DC2626' }]} />
+            <Text style={styles.legendLabel}>HIGH</Text>
+          </View>
+          <Text style={styles.legendPercent}>{high}%</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginVertical: spacing.xs,
+    borderColor: '#E2E8F0',
+    padding: 16,
     ...shadows.soft,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
   titleWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 8,
   },
   title: {
-    fontSize: 13,
+    fontFamily: typography.h3.fontFamily,
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.primaryText,
+    color: '#0F172A',
   },
   rightAction: {
     flexDirection: 'row',
@@ -112,30 +135,34 @@ const styles = StyleSheet.create({
   },
   viewText: {
     fontFamily: typography.caption.fontFamily,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.secondaryNavy,
+    color: '#1D4ED8',
   },
   barTrack: {
     height: 8,
-    borderRadius: radius.full,
+    borderRadius: 4,
     flexDirection: 'row',
     overflow: 'hidden',
-    backgroundColor: colors.surfaceSubtle,
-    marginBottom: spacing.sm,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 14,
   },
   barSegment: {
     height: '100%',
   },
   legendRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
   },
-  legendItem: {
+  legendColumn: {
+    alignItems: 'center',
+  },
+  legendLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    marginBottom: 2,
   },
   dot: {
     width: 6,
@@ -145,11 +172,15 @@ const styles = StyleSheet.create({
   legendLabel: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
-    color: colors.mutedText,
-  },
-  legendValue: {
     fontWeight: '700',
-    color: colors.primaryText,
+    color: '#64748B',
+    letterSpacing: 0.3,
+  },
+  legendPercent: {
+    fontFamily: typography.h3.fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
   },
 });
 

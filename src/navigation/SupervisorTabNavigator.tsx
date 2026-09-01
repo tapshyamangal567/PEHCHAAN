@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SupervisorTabParamList } from './types';
 import { SupervisorDashboardScreen } from '../features/supervisor/screens/SupervisorDashboardScreen';
@@ -7,15 +7,13 @@ import { ReviewQueueScreen } from '../features/supervisor/screens/ReviewQueueScr
 import { SupervisorAlertsScreen } from '../features/supervisor/screens/SupervisorAlertsScreen';
 import { OfficerActivityScreen } from '../features/supervisor/screens/OfficerActivityScreen';
 import { SupervisorCasesScreen } from '../features/supervisor/screens/SupervisorCasesScreen';
-import { SupervisorProfileScreen } from '../features/supervisor/screens/SupervisorProfileScreen';
 import { colors, typography, shadows } from '../theme';
 import {
-  LayoutDashboard,
+  LayoutGrid,
   ClipboardList,
   Bell,
   Users,
-  FileCheck2,
-  User,
+  FileText,
 } from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator<SupervisorTabParamList>();
@@ -25,8 +23,8 @@ export const SupervisorTabNavigator = () => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primaryNavy,
-        tabBarInactiveTintColor: colors.secondaryText,
+        tabBarActiveTintColor: '#1D4ED8',
+        tabBarInactiveTintColor: '#64748B',
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
@@ -38,7 +36,10 @@ export const SupervisorTabNavigator = () => {
         options={{
           tabBarLabel: 'Overview',
           tabBarIcon: ({ color, size, focused }) => (
-            <LayoutDashboard size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <LayoutGrid size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -50,7 +51,10 @@ export const SupervisorTabNavigator = () => {
         options={{
           tabBarLabel: 'Review',
           tabBarIcon: ({ color, size, focused }) => (
-            <ClipboardList size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <ClipboardList size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -62,7 +66,10 @@ export const SupervisorTabNavigator = () => {
         options={{
           tabBarLabel: 'Alerts',
           tabBarIcon: ({ color, size, focused }) => (
-            <Bell size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <Bell size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -74,7 +81,10 @@ export const SupervisorTabNavigator = () => {
         options={{
           tabBarLabel: 'Officers',
           tabBarIcon: ({ color, size, focused }) => (
-            <Users size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <Users size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -86,7 +96,10 @@ export const SupervisorTabNavigator = () => {
         options={{
           tabBarLabel: 'Cases',
           tabBarIcon: ({ color, size, focused }) => (
-            <FileCheck2 size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <FileText size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -96,18 +109,33 @@ export const SupervisorTabNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: Platform.OS === 'ios' ? 88 : 68,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-    paddingTop: 8,
+    borderTopColor: '#E2E8F0',
+    height: Platform.OS === 'ios' ? 84 : 64,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    paddingTop: 6,
     ...shadows.soft,
   },
   tabBarLabel: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  iconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    paddingTop: 4,
+  },
+  activeTopLine: {
+    position: 'absolute',
+    top: -6,
+    width: 24,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#1D4ED8',
   },
 });
 

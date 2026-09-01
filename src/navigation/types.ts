@@ -1,5 +1,6 @@
 export type AuthStackParamList = {
-  Login: undefined;
+  Landing: undefined;
+  Login: { initialRole?: 'OFFICER' | 'SUPERVISOR' } | undefined;
   ForgotPassword: undefined;
   Register: undefined;
 };
