@@ -28,7 +28,8 @@
         {
           "cameraPermission": "Camera access is required to scan a passport."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

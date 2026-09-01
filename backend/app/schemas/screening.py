@@ -88,6 +88,7 @@ class TamperingAnalysisResult(BaseModel):
 class PassportScreeningResponse(BaseModel):
     success: bool = True
     document_type: str = "passport"
+    verification_id: Optional[str] = None
     ocr: OCRResult
     fields: PassportFields
     field_confidence: Dict[str, FieldConfidenceItem] = Field(default_factory=dict)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import io
 from PIL import Image, ImageEnhance, ImageFilter
 from app.utils.validation import validate_image_file, ScreeningException

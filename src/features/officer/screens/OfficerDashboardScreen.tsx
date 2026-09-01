@@ -11,7 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ScreenContainer } from '../../../components/navigation/ScreenContainer';
 import { AppLogo } from '../../../components/ui/AppLogo';
 import { Avatar } from '../../../components/ui/Avatar';
-import { OnlineIndicator } from '../../../components/ui/OnlineIndicator';
+import { NetworkStatusIndicator } from '../../../components/ui/NetworkStatusIndicator';
 import { SectionHeader } from '../../../components/navigation/SectionHeader';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { AlertItemCard } from '../components/AlertItemCard';
@@ -19,6 +19,7 @@ import { CaseRowItem } from '../components/CaseRowItem';
 import { CaseDetailModal } from '../components/CaseDetailModal';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useSyncStore } from '../../../services/offline/syncService';
 import {
   MOCK_OFFICER_METRICS,
   MOCK_PENDING_ALERTS,
@@ -39,11 +40,13 @@ import {
   ArrowRight,
   Shield,
   FileCheck2,
+  Layers,
 } from 'lucide-react-native';
 
 export const OfficerDashboardScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+  const { stats } = useSyncStore();
 
   const [selectedCase, setSelectedCase] = useState<OfficerCase | null>(null);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
@@ -57,7 +60,7 @@ export const OfficerDashboardScreen = () => {
       {/* Background Soft Blue Glow Effect behind Hero */}
       <View style={styles.ambientBlueGlow} />
 
-      {/* 1. Header with AppLogo, Officer Info & Online Indicator */}
+      {/* 1. Header with AppLogo, Officer Info & Interactive Network Indicator */}
       <FadeInView delay={100} style={styles.headerRow}>
         <View style={styles.brandingBox}>
           <AppLogo size="sm" showTagline={false} align="flex-start" />
@@ -67,7 +70,7 @@ export const OfficerDashboardScreen = () => {
               <Text style={typography.caption}>
                 Checkpoint Alpha • {user?.badgeId || 'IND-SEC-8842'}
               </Text>
-              <OnlineIndicator label="Online" size="sm" />
+              <NetworkStatusIndicator />
             </View>
           </View>
         </View>
@@ -80,6 +83,30 @@ export const OfficerDashboardScreen = () => {
           <Avatar name={user?.name || 'Arjun Mehta'} size={44} showOnlineStatus />
         </TouchableOpacity>
       </FadeInView>
+
+      {/* Offline Pending Banner (if cases are waiting to sync) */}
+      {stats.pending > 0 && (
+        <SlideUpView delay={120}>
+          <TouchableOpacity
+            style={styles.pendingSyncCard}
+            onPress={() => navigation.navigate('OfflineSync')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.pendingSyncLeft}>
+              <Layers size={18} color="#D97706" />
+              <View>
+                <Text style={styles.pendingSyncTitle}>
+                  {stats.pending} Offline {stats.pending === 1 ? 'Case' : 'Cases'} Pending Sync
+                </Text>
+                <Text style={styles.pendingSyncSub}>
+                  Tap to view offline queue and synchronize with server
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#D97706" />
+          </TouchableOpacity>
+        </SlideUpView>
+      )}
 
       {/* 2. Today's Screening Metrics (3 Harmonious Surfaces: Soft Blue, Soft Mint, Soft Warm) */}
       <SlideUpView delay={150} style={styles.metricsSection}>
@@ -493,6 +520,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.secondaryText,
     marginBottom: spacing.xl,
+  },
+  pendingSyncCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginBottom: 16,
+    ...shadows.soft,
+  },
+  pendingSyncLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  pendingSyncTitle: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pendingSyncSub: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
   },
 });
 

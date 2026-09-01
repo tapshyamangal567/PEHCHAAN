@@ -92,6 +92,7 @@ export interface ScreeningMetadata {
 export interface PassportScreeningResponse {
   success: boolean;
   document_type: string;
+  verification_id?: string;
   ocr: OCRResult;
   fields: PassportFields;
   field_confidence: Record<string, FieldConfidenceItem>;
@@ -99,6 +100,7 @@ export interface PassportScreeningResponse {
   consistency: ConsistencyCheckResponse;
   validation?: ValidationResult | null;
   tampering_analysis?: TamperingAnalysisResult | null;
+  face_verification_result?: any;
   metadata: ScreeningMetadata;
 }
 

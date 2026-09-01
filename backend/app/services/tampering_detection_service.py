@@ -1,8 +1,9 @@
+from __future__ import annotations
 import io
 import cv2
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from PIL import Image
 
 class TamperingDetector(ABC):

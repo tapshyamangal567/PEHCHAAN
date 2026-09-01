@@ -1,18 +1,26 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { OfficerStackParamList } from './types';
+
 import { OfficerTabNavigator } from './OfficerTabNavigator';
+
 import { PassportUploadScreen } from '../features/screening/screens/PassportUploadScreen';
 import { PassportCameraScreen } from '../features/screening/screens/PassportCameraScreen';
 import { PassportPreparationScreen } from '../features/screening/screens/PassportPreparationScreen';
 import { PassportPreviewScreen } from '../features/screening/screens/PassportPreviewScreen';
 import { DocumentAnalysisScreen } from '../features/screening/screens/DocumentAnalysisScreen';
 import { VerificationResultsScreen } from '../features/screening/screens/VerificationResultsScreen';
+
 import { FaceVerificationScreen } from '../features/screening/screens/FaceVerificationScreen';
 import { FaceVerificationResultScreen } from '../features/screening/screens/FaceVerificationResultScreen';
 import { RiskAssessmentScreen } from '../features/screening/screens/RiskAssessmentScreen';
 
+import { IdentityVerificationScreen } from '../features/screening/screens/IdentityVerificationScreen';
+import { OfflineSyncScreen } from '../features/screening/screens/OfflineSyncScreen';
+
+
 const Stack = createNativeStackNavigator<OfficerStackParamList>();
+
 
 export const OfficerStack = () => {
   return (
@@ -20,21 +28,77 @@ export const OfficerStack = () => {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        contentStyle: { backgroundColor: '#F5F7FA' },
+        contentStyle: {
+          backgroundColor: '#F5F7FA',
+        },
       }}
     >
-      <Stack.Screen name="OfficerMainTabs" component={OfficerTabNavigator} />
-      <Stack.Screen name="PassportUpload" component={PassportUploadScreen} />
-      <Stack.Screen name="PassportCamera" component={PassportCameraScreen} />
-      <Stack.Screen name="PassportPreparation" component={PassportPreparationScreen} />
-      <Stack.Screen name="PassportPreview" component={PassportPreviewScreen} />
-      <Stack.Screen name="DocumentAnalysis" component={DocumentAnalysisScreen} />
-      <Stack.Screen name="VerificationResults" component={VerificationResultsScreen} />
-      <Stack.Screen name="FaceVerification" component={FaceVerificationScreen} />
-      <Stack.Screen name="FaceVerificationResult" component={FaceVerificationResultScreen} />
-      <Stack.Screen name="RiskAssessment" component={RiskAssessmentScreen} />
+      <Stack.Screen
+        name="OfficerMainTabs"
+        component={OfficerTabNavigator}
+      />
+
+      <Stack.Screen
+        name="PassportUpload"
+        component={PassportUploadScreen}
+      />
+
+      <Stack.Screen
+        name="PassportCamera"
+        component={PassportCameraScreen}
+      />
+
+      <Stack.Screen
+        name="PassportPreparation"
+        component={PassportPreparationScreen}
+      />
+
+      <Stack.Screen
+        name="PassportPreview"
+        component={PassportPreviewScreen}
+      />
+
+      <Stack.Screen
+        name="DocumentAnalysis"
+        component={DocumentAnalysisScreen}
+      />
+
+      <Stack.Screen
+        name="VerificationResults"
+        component={VerificationResultsScreen}
+      />
+
+      {/* Existing Face Verification Flow */}
+      <Stack.Screen
+        name="FaceVerification"
+        component={FaceVerificationScreen}
+      />
+
+      <Stack.Screen
+        name="FaceVerificationResult"
+        component={FaceVerificationResultScreen}
+      />
+
+      <Stack.Screen
+        name="RiskAssessment"
+        component={RiskAssessmentScreen}
+      />
+
+      {/* Team Member Identity Verification Flow */}
+      <Stack.Screen
+        name="IdentityVerification"
+        component={IdentityVerificationScreen}
+      />
+
+      {/* Offline Verification / Synchronization */}
+      <Stack.Screen
+        name="OfflineSync"
+        component={OfflineSyncScreen}
+      />
+
     </Stack.Navigator>
   );
 };
+
 
 export default OfficerStack;
