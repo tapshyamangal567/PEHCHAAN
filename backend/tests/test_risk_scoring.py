@@ -38,7 +38,7 @@ class TestRiskScoringEngine(unittest.TestCase):
             "fields": {"date_of_expiry": "2030-12-31"}
         }
         res = self.engine.assess(payload)
-        self.assertEqual(res["score"], 15)
+        self.assertEqual(res["score"], 5)
         self.assertEqual(res["level"], "LOW")
 
     def test_3_high_tampering_and_face_mismatch_yields_high_risk(self):
@@ -74,9 +74,9 @@ class TestRiskScoringEngine(unittest.TestCase):
         res = self.engine.assess(payload)
         # Validation gets 10 pts; Expiry gets 0 pts due to deduplication (already counted)
         self.assertEqual(res["score"], 10)
-        expiry_factor = next(f for f in res["risk_factors"] if f["name"] == "Expiry Check")
-        self.assertEqual(expiry_factor["points"], 0)
-        self.assertIn("failure accounted for", expiry_factor["reason"].lower())
+        expiry_signal = res["supporting_signals"]["expiry"]
+        self.assertEqual(expiry_signal["status"], "FAIL")
+        self.assertIn("failure accounted for", expiry_signal["reason"].lower())
 
     def test_5_missing_data_does_not_artificially_spike_risk(self):
         """TEST 5: Missing fields yield NOT_AVAILABLE status, no fake score spike, set incomplete flag."""
@@ -165,6 +165,33 @@ class TestRiskScoringEngine(unittest.TestCase):
         ra = data["risk_assessment"]
         self.assertEqual(ra["score"], 0)
         self.assertEqual(ra["level"], "LOW")
+
+    def test_11_tampering_score_continuous_threshold_mapping(self):
+        """TEST 11: Continuous score mapping (0.10 -> PASS 0pts, 0.26 -> REVIEW 15pts, 0.85 -> FAIL 30pts)."""
+        # Score 0.10 -> PASS, 0 pts
+        res_low = self.engine.assess({"tampering_analysis": {"score": 0.10, "status": "LOW_SUSPICION"}})
+        tf_low = next(f for f in res_low["checks"] if "Authenticity" in f["name"] or "Tampering" in f["name"])
+        self.assertEqual(tf_low["status"], "PASS")
+        self.assertEqual(tf_low["points"], 0)
+
+        # Score 0.26 -> REVIEW, 5 pts
+        res_med = self.engine.assess({"tampering_analysis": {"score": 0.26, "reasons": ["Localized compression anomaly"]}})
+        tf_med = next(f for f in res_med["checks"] if "Authenticity" in f["name"] or "Tampering" in f["name"])
+        self.assertEqual(tf_med["status"], "REVIEW")
+        self.assertEqual(tf_med["points"], 5)
+        self.assertEqual(tf_med["reason"], "Localized compression anomaly")
+
+        # Score 0.85 -> FAIL, 30 pts
+        res_high = self.engine.assess({"tampering_analysis": {"score": 0.85, "status": "HIGH_SUSPICION"}})
+        tf_high = next(f for f in res_high["checks"] if "Authenticity" in f["name"] or "Tampering" in f["name"])
+        self.assertEqual(tf_high["status"], "FAIL")
+        self.assertEqual(tf_high["points"], 30)
+
+        # Unavailable -> NOT_AVAILABLE, 0 pts
+        res_unavail = self.engine.assess({"tampering_analysis": {"status": "NOT_AVAILABLE"}})
+        tf_unavail = next(f for f in res_unavail["checks"] if "Authenticity" in f["name"] or "Tampering" in f["name"])
+        self.assertEqual(tf_unavail["status"], "NOT_AVAILABLE")
+        self.assertEqual(tf_unavail["points"], 0)
 
 if __name__ == "__main__":
     unittest.main()

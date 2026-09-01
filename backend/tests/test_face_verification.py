@@ -31,9 +31,19 @@ class TestFaceVerification(unittest.TestCase):
         # Empty payload -> PASS
         res_empty = self.liveness_detector.verify(None)
 
-        self.assertEqual(res_empty["status"], "PASS")
-        self.assertIsNone(res_empty["confidence"])
-        self.assertEqual(res_empty["method"], "basic_challenge")
+        self.assertEqual(
+            res_empty["status"],
+            "PASS"
+        )
+
+        self.assertIsNone(
+            res_empty["confidence"]
+        )
+
+        self.assertEqual(
+            res_empty["method"],
+            "basic_challenge"
+        )
 
         # Passed challenge
         res_pass = self.liveness_detector.verify({
@@ -45,18 +55,32 @@ class TestFaceVerification(unittest.TestCase):
             "motion_detected": True
         })
 
-        self.assertEqual(res_pass["status"], "PASS")
-        self.assertIsNone(res_pass["confidence"])
+        self.assertEqual(
+            res_pass["status"],
+            "PASS"
+        )
+
+        self.assertIsNone(
+            res_pass["confidence"]
+        )
 
         # Failed challenge
         res_fail = self.liveness_detector.verify({
-            "challenges_completed": ["look_camera"],
+            "challenges_completed": [
+                "look_camera"
+            ],
             "passed": False,
             "motion_detected": False
         })
 
-        self.assertEqual(res_fail["status"], "FAIL")
-        self.assertIsNone(res_fail["confidence"])
+        self.assertEqual(
+            res_fail["status"],
+            "FAIL"
+        )
+
+        self.assertIsNone(
+            res_fail["confidence"]
+        )
 
     def test_passport_without_face_returns_passport_face_not_found(self):
         """Image with no face should yield PASSPORT_FACE_NOT_FOUND."""
@@ -66,7 +90,9 @@ class TestFaceVerification(unittest.TestCase):
             live_img_bgr=self.blank_image_bgr
         )
 
-        self.assertTrue(res["success"])
+        self.assertTrue(
+            res["success"]
+        )
 
         verification = res["face_verification"]
 
@@ -100,7 +126,10 @@ class TestFaceVerification(unittest.TestCase):
         def mock_detect(img):
             if (
                 img.shape == self.blank_image_bgr.shape
-                and np.array_equal(img, self.blank_image_bgr)
+                and np.array_equal(
+                    img,
+                    self.blank_image_bgr
+                )
             ):
                 return [dummy_face]
 
@@ -171,7 +200,10 @@ class TestFaceVerification(unittest.TestCase):
                 if img[0, 0, 0] == 200:
                     return [dummy_face1]
 
-                return [dummy_face1, dummy_face2]
+                return [
+                    dummy_face1,
+                    dummy_face2
+                ]
 
             return []
 
@@ -179,7 +211,10 @@ class TestFaceVerification(unittest.TestCase):
 
         try:
             live_multi = (
-                np.ones((300, 300, 3), dtype=np.uint8) * 50
+                np.ones(
+                    (300, 300, 3),
+                    dtype=np.uint8
+                ) * 50
             )
 
             res = face_verification_service.verify_faces(
@@ -199,9 +234,15 @@ class TestFaceVerification(unittest.TestCase):
         """Test MATCH, REVIEW and MISMATCH thresholds."""
 
         original_detect = face_verification_service.detect_faces
-        original_quality = face_verification_service.evaluate_face_quality
-        original_embed = face_verification_service.extract_embedding
-        original_match = face_verification_service.compute_similarity
+        original_quality = (
+            face_verification_service.evaluate_face_quality
+        )
+        original_embed = (
+            face_verification_service.extract_embedding
+        )
+        original_match = (
+            face_verification_service.compute_similarity
+        )
 
         dummy_face = np.array(
             [
@@ -240,9 +281,11 @@ class TestFaceVerification(unittest.TestCase):
                 lambda e1, e2: 0.85
             )
 
-            res_match = face_verification_service.verify_faces(
-                self.blank_image_bgr,
-                self.blank_image_bgr
+            res_match = (
+                face_verification_service.verify_faces(
+                    self.blank_image_bgr,
+                    self.blank_image_bgr
+                )
             )
 
             self.assertEqual(
@@ -260,9 +303,11 @@ class TestFaceVerification(unittest.TestCase):
                 lambda e1, e2: 0.42
             )
 
-            res_review = face_verification_service.verify_faces(
-                self.blank_image_bgr,
-                self.blank_image_bgr
+            res_review = (
+                face_verification_service.verify_faces(
+                    self.blank_image_bgr,
+                    self.blank_image_bgr
+                )
             )
 
             self.assertEqual(
@@ -275,9 +320,11 @@ class TestFaceVerification(unittest.TestCase):
                 lambda e1, e2: 0.20
             )
 
-            res_mismatch = face_verification_service.verify_faces(
-                self.blank_image_bgr,
-                self.blank_image_bgr
+            res_mismatch = (
+                face_verification_service.verify_faces(
+                    self.blank_image_bgr,
+                    self.blank_image_bgr
+                )
             )
 
             self.assertEqual(
@@ -319,7 +366,10 @@ class TestFaceVerification(unittest.TestCase):
 
         data = response.json()
 
-        self.assertTrue(data["success"])
+        self.assertTrue(
+            data["success"]
+        )
+
         self.assertIn(
             "face_verification",
             data

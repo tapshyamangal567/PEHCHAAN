@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     RISK_LOW_MAX: int = 29
     RISK_MEDIUM_MAX: int = 59
 
+    TAMPERING_LOW_MAX: float = 0.20
+    TAMPERING_MEDIUM_MAX: float = 0.50
+
     WEIGHT_TAMPERING: int = 30
     WEIGHT_FACE_MATCH: int = 25
     WEIGHT_MRZ: int = 15

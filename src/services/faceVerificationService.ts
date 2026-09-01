@@ -2,8 +2,10 @@ import apiClient from './api/apiClient';
 
 
 export type VerificationStatus =
-  | 'MATCH'
+  | 'PASS'
   | 'REVIEW'
+  | 'FAIL'
+  | 'MATCH'
   | 'MISMATCH'
   | 'PASSPORT_FACE_NOT_FOUND'
   | 'LIVE_FACE_NOT_FOUND'
@@ -13,7 +15,11 @@ export type VerificationStatus =
 
 
 export interface LivenessInfo {
-  status: 'PASS' | 'FAIL' | 'INCONCLUSIVE';
+  status: 'PASS' | 'FAIL' | 'REVIEW' | 'NOT_AVAILABLE' | 'INCONCLUSIVE';
+  challenge_type?: string | null;
+  challenge_started?: boolean;
+  challenge_completed?: boolean;
+  result?: 'PASS' | 'FAIL' | 'REVIEW' | 'NOT_AVAILABLE' | 'INCONCLUSIVE';
   confidence: number | null;
   method: string;
   message?: string;
@@ -27,7 +33,14 @@ export interface QualityInfo {
 
 
 export interface FaceVerificationData {
+  passport_face_detected: boolean;
+  live_face_detected: boolean;
+  face_positioned: boolean;
+  liveness_passed: boolean;
+  similarity_score: number | null;
+  match_threshold: number | null;
   status: VerificationStatus;
+  message: string;
   similarity: number;
   passport_face: {
     detected: boolean;
@@ -38,7 +51,6 @@ export interface FaceVerificationData {
   };
   liveness: LivenessInfo;
   quality: QualityInfo;
-  message: string;
 }
 
 
@@ -49,9 +61,14 @@ export interface FaceVerificationResponse {
 
 
 export interface LivenessChallengePayload {
-  challenges_completed: string[];
-  passed: boolean;
-  motion_detected: boolean;
+  challenge_type?: string;
+  challenge_started?: boolean;
+  challenge_completed?: boolean;
+  challenges_completed?: string[];
+  passed?: boolean;
+  motion_detected?: boolean;
+  timed_out?: boolean;
+  multiple_faces?: boolean;
 }
 
 

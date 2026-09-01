@@ -24,9 +24,9 @@ class PassportParserService:
         
         passport_number = PassportParserService._extract_passport_number(lines, raw_text)
         nationality = PassportParserService._extract_nationality(lines, raw_text)
-        date_of_birth = PassportParserService._extract_date(lines, raw_text, ["birth", "dob", "born", "naissance"])
-        date_of_issue = PassportParserService._extract_date(lines, raw_text, ["issue", "doi", "delivrance", "given"])
-        date_of_expiry = PassportParserService._extract_date(lines, raw_text, ["expiry", "exp", "valid", "until", "doe", "expiration"])
+        date_of_birth = PassportParserService._extract_date(lines, raw_text, ["birth", "dob", "born", "naissance"], text_blocks)
+        date_of_issue = PassportParserService._extract_date_of_issue(lines, raw_text, text_blocks)
+        date_of_expiry = PassportParserService._extract_date(lines, raw_text, ["expiry", "exp", "valid", "until", "doe", "expiration"], text_blocks)
         gender = PassportParserService._extract_gender(lines, raw_text)
         full_name = PassportParserService._extract_full_name(lines)
 
@@ -100,18 +100,74 @@ class PassportParserService:
         return None
 
     @staticmethod
-    def _extract_date(lines: list[str], raw_text: str, keywords: list[str]) -> str | None:
-        # Regex matching dates separated by slashes, dashes, dots, spaces, commas, or 'I'/'l'/'|'
-        date_pattern = r'\b\d{2}[\s\-/\.,Il|]\d{2}[\s\-/\.,Il|]\d{4}\b|\b\d{4}[\s\-/\.,Il|]\d{2}[\s\-/\.,Il|]\d{2}\b|\b\d{2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[a-z]*\s+\d{4}\b'
+    def _extract_date_of_issue(lines: list[str], raw_text: str, text_blocks: list[dict] = None) -> str | None:
+        """
+        Dynamically extracts Date of Issue from visual OCR labels and bounding box positions.
+        Supported labels: "Date of Issue", "Date of issue", "Issue Date", "Date issued", "doi", "delivrance".
+        """
+        keywords = ["date of issue", "issue date", "date issued", "doi", "delivrance", "issue"]
+        return PassportParserService._extract_date(lines, raw_text, keywords, text_blocks)
 
+    @staticmethod
+    def _extract_date(lines: list[str], raw_text: str, keywords: list[str], text_blocks: list[dict] = None) -> str | None:
+        # Regex matching dates: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD, DD MMM YYYY
+        date_pattern = r'\b\d{2}[\s\-/\.,Il|]\d{2}[\s\-/\.,Il|]\d{4}\b|\b\d{4}[\s\-/\.,Il|]\d{2}[\s\-/\.,Il|]\d{2}\b|\b\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[a-z]*\s+\d{4}\b'
+
+        # 1. Spatial bounding-box matching if blocks available
+        if text_blocks:
+            label_blocks = []
+            for block in text_blocks:
+                text_lower = block.get("text", "").lower()
+                if any(kw in text_lower for kw in keywords):
+                    # Check if block itself contains date
+                    match = re.search(date_pattern, block.get("text", ""), re.IGNORECASE)
+                    if match:
+                        norm = PassportParserService._normalize_date(match.group(0))
+                        if norm:
+                            return norm
+                    label_blocks.append(block)
+
+            if label_blocks:
+                candidate_dates = []
+                for block in text_blocks:
+                    match = re.search(date_pattern, block.get("text", ""), re.IGNORECASE)
+                    if match:
+                        norm = PassportParserService._normalize_date(match.group(0))
+                        if norm:
+                            bbox = block.get("bbox", [])
+                            if bbox and len(bbox) == 4:
+                                b_y = (bbox[0][1] + bbox[2][1]) / 2.0
+                                b_x = bbox[0][0]
+                                candidate_dates.append((norm, b_y, b_x))
+
+                for l_block in label_blocks:
+                    l_bbox = l_block.get("bbox", [])
+                    if l_bbox and len(l_bbox) == 4:
+                        l_y = (l_bbox[0][1] + l_bbox[2][1]) / 2.0
+                        l_x = l_bbox[0][0]
+
+                        best_date = None
+                        min_dist = float("inf")
+
+                        for norm, b_y, b_x in candidate_dates:
+                            dy = b_y - l_y
+                            dx = b_x - l_x
+                            # Prefer date on same line to right (dy close to 0) or just below (0 <= dy <= 90)
+                            if -20 <= dy <= 90:
+                                dist = (dy ** 2 + dx ** 2) ** 0.5
+                                if dist < min_dist:
+                                    min_dist = dist
+                                    best_date = norm
+                        if best_date:
+                            return best_date
+
+        # 2. Text line search fallback
         for i, line in enumerate(lines):
             line_lower = line.lower()
             if any(kw in line_lower for kw in keywords):
-                # Search current line
                 match = re.search(date_pattern, line, re.IGNORECASE)
                 if match:
                     return PassportParserService._normalize_date(match.group(0))
-                # Search next 1-2 lines for value
                 for offset in [1, 2]:
                     if i + offset < len(lines):
                         next_match = re.search(date_pattern, lines[i + offset], re.IGNORECASE)
@@ -122,10 +178,31 @@ class PassportParserService:
 
     @staticmethod
     def _normalize_date(s: str) -> str:
-        clean = re.sub(r'[\s\-/\.,Il|]+', '/', s.strip())
+        s = s.strip()
+        # YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+        m_yyyy = re.match(r'^(\d{4})[\s\-/\.Il|](\d{2})[\s\-/\.Il|](\d{2})$', s)
+        if m_yyyy:
+            yyyy, mm, dd = m_yyyy.groups()
+            return f"{dd.zfill(2)}/{mm.zfill(2)}/{yyyy}"
+
+        # DD MMM YYYY (e.g. 20 MAY 2024)
+        months = {
+            "JAN": "01", "FEB": "02", "MAR": "03", "APR": "04", "MAY": "05", "JUN": "06",
+            "JUL": "07", "AUG": "08", "SEP": "09", "OCT": "10", "NOV": "11", "DEC": "12"
+        }
+        m_mmm = re.match(r'^(\d{1,2})\s+([A-Za-z]{3})[a-z]*\s+(\d{4})$', s, re.IGNORECASE)
+        if m_mmm:
+            dd, mmm, yyyy = m_mmm.groups()
+            mm = months.get(mmm.upper()[:3])
+            if mm:
+                return f"{int(dd):02d}/{mm}/{yyyy}"
+
+        clean = re.sub(r'[\s\-/\.,Il|]+', '/', s)
         parts = clean.split('/')
         if len(parts) == 3:
-            return f"{parts[0]:0>2}/{parts[1]:0>2}/{parts[2]}"
+            if len(parts[0]) == 4:  # YYYY/MM/DD
+                return f"{int(parts[2]):02d}/{int(parts[1]):02d}/{parts[0]}"
+            return f"{parts[0].zfill(2)}/{parts[1].zfill(2)}/{parts[2]}"
         return clean
 
     @staticmethod

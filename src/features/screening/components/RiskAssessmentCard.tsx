@@ -10,6 +10,8 @@ import {
   ChevronUp,
   Info,
   CheckCircle2,
+  XCircle,
+  HelpCircle,
   AlertCircle,
 } from 'lucide-react-native';
 
@@ -19,6 +21,7 @@ interface RiskAssessmentCardProps {
 
 export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessment }) => {
   const [expandedFactors, setExpandedFactors] = useState<Record<string, boolean>>({});
+  const [showExplanation, setShowExplanation] = useState<boolean>(false);
 
   const toggleFactor = (name: string) => {
     setExpandedFactors((prev) => ({
@@ -27,7 +30,20 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
     }));
   };
 
-  const { score, level, coverage, risk_factors, verification_incomplete, recommendation } = assessment;
+  const {
+    score,
+    level,
+    coverage,
+    checks,
+    risk_factors,
+    supporting_signals,
+    verification_incomplete,
+    recommendation,
+  } = assessment;
+
+  const primaryChecksList = checks || risk_factors || [];
+  const completedCount = coverage.completed_checks ?? coverage.available_checks ?? 0;
+  const totalCount = coverage.total_checks ?? 7;
 
   const isLow = level === 'LOW';
   const isMedium = level === 'MEDIUM';
@@ -37,9 +53,42 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
   const themeColor = isLow ? colors.success : isMedium ? colors.warning : colors.danger;
   const themeBg = isLow ? colors.softMint : isMedium ? colors.warningBg : colors.dangerBg;
 
+  const renderStatusBadge = (status: string | null | undefined) => {
+    const s = (status || '').toString().toUpperCase();
+    if (s === 'PASS' || s === 'LOW_SUSPICION') {
+      return (
+        <View style={[styles.badgeContainer, styles.badgePass]}>
+          <CheckCircle2 size={12} color={colors.success} />
+          <Text style={[styles.badgeText, { color: colors.success }]}>PASS</Text>
+        </View>
+      );
+    } else if (s === 'REVIEW' || s === 'MEDIUM_SUSPICION') {
+      return (
+        <View style={[styles.badgeContainer, styles.badgeReview]}>
+          <AlertTriangle size={12} color={colors.warning} />
+          <Text style={[styles.badgeText, { color: colors.warning }]}>REVIEW</Text>
+        </View>
+      );
+    } else if (s === 'FAIL' || s === 'HIGH_SUSPICION') {
+      return (
+        <View style={[styles.badgeContainer, styles.badgeFail]}>
+          <XCircle size={12} color={colors.danger} />
+          <Text style={[styles.badgeText, { color: colors.danger }]}>FAIL</Text>
+        </View>
+      );
+    } else {
+      return (
+        <View style={[styles.badgeContainer, styles.badgeNotAvailable]}>
+          <HelpCircle size={12} color={colors.mutedText} />
+          <Text style={[styles.badgeText, { color: colors.mutedText }]}>NOT AVAILABLE</Text>
+        </View>
+      );
+    }
+  };
+
   return (
     <View style={styles.cardContainer}>
-      {/* Header */}
+      {/* Header Banner */}
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>EXPLAINABLE RISK ASSESSMENT</Text>
         <View style={[styles.levelPill, { backgroundColor: themeBg }]}>
@@ -49,12 +98,11 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
         </View>
       </View>
 
-      {/* Main Score Meter Display */}
+      {/* Main Score & Coverage Display */}
       <View style={styles.scoreMeterContainer}>
         <View style={styles.scoreRow}>
           <View style={styles.scoreCol}>
             <Text style={styles.scoreLabel}>RISK SCORE</Text>
-
             <View style={styles.scoreValueRow}>
               <Text style={[styles.scoreValue, { color: themeColor }]}>{score}</Text>
               <Text style={styles.scoreMax}> / 100</Text>
@@ -63,17 +111,13 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
 
           {/* Coverage Gauge Badge */}
           <View style={styles.coverageBox}>
-            <Text style={styles.coverageLabel}>COVERAGE</Text>
-
-            <Text style={styles.coverageValue}>{coverage.percentage}%</Text>
-
-            <Text style={styles.coverageSub}>
-              {coverage.available_checks} / {coverage.total_checks} checks
-            </Text>
+            <Text style={styles.coverageLabel}>VERIFICATION COVERAGE</Text>
+            <Text style={styles.coverageValue}>{completedCount} / {totalCount}</Text>
+            <Text style={styles.coverageSub}>{coverage.percentage}% Complete</Text>
           </View>
         </View>
 
-        {/* Meter Progress Bar */}
+        {/* Progress Bar */}
         <View style={styles.progressBarBg}>
           <View
             style={[
@@ -90,22 +134,21 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
           <View style={styles.incompleteWarningPill}>
             <AlertCircle size={13} color={colors.warning} />
             <Text style={styles.incompleteWarningText}>
-              Incomplete Verification — Additional checks recommended
+              ⚠ Verification Incomplete — Additional checks recommended
             </Text>
           </View>
         ) : null}
       </View>
 
-      {/* Recommendation Banner */}
+      {/* Recommended Officer Action */}
       <View style={[styles.recommendationBanner, { borderColor: themeColor }]}>
         <View style={styles.recLeftRow}>
-
           {isLow ? (
-            <ShieldCheck size={18} color={colors.success} />
+            <ShieldCheck size={20} color={colors.success} />
           ) : isMedium ? (
-            <AlertTriangle size={18} color={colors.warning} />
+            <AlertTriangle size={20} color={colors.warning} />
           ) : (
-            <ShieldAlert size={18} color={colors.danger} />
+            <ShieldAlert size={20} color={colors.danger} />
           )}
           <View style={styles.recTextCol}>
             <Text style={styles.recTitle}>RECOMMENDED OFFICER ACTION</Text>
@@ -114,14 +157,15 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
         </View>
       </View>
 
-      {/* Risk Factors Section */}
+      {/* Primary Verification Checks (7 Checks) */}
       <View style={styles.factorsSection}>
-        <Text style={styles.factorsSectionTitle}>EXPLAINABLE RISK FACTORS</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.factorsSectionTitle}>PRIMARY VERIFICATION CHECKS (7 CHECKS)</Text>
+        </View>
 
         <View style={styles.factorsList}>
-          {risk_factors.map((factor) => {
+          {primaryChecksList.map((factor) => {
             const isExpanded = Boolean(expandedFactors[factor.name]);
-            const isAvailable = factor.status !== 'NOT_AVAILABLE';
             const isPenalized = factor.points > 0;
 
             return (
@@ -130,26 +174,14 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
                   onPress={() => toggleFactor(factor.name)}
                   style={styles.factorHeaderBtn}
                   accessibilityRole="button"
-                  accessibilityLabel={`Toggle explanation for ${factor.name}`}
+                  accessibilityLabel={`Toggle details for ${factor.name}`}
                 >
                   <View style={styles.factorLeft}>
-                    {isPenalized ? (
-                      <AlertTriangle size={15} color={colors.warning} />
-                    ) : isAvailable ? (
-                      <CheckCircle2 size={15} color={colors.success} />
-                    ) : (
-                      <Info size={15} color={colors.mutedText} />
-                    )}
-                    <View>
-                      <Text style={styles.factorName}>{factor.name}</Text>
-
-                      <Text style={styles.factorStatus}>
-                        {factor.status.replace(/_/g, ' ')}
-                      </Text>
-                    </View>
+                    <Text style={styles.factorName}>{factor.name}</Text>
                   </View>
 
                   <View style={styles.factorRight}>
+                    {renderStatusBadge(factor.status)}
                     <Text
                       style={[
                         styles.pointsBadgeText,
@@ -166,10 +198,10 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
                   </View>
                 </TouchableOpacity>
 
-                {/* Collapsible "Why?" Explanation */}
+                {/* Collapsible Explanation */}
                 {isExpanded ? (
                   <View style={styles.factorReasonContainer}>
-                    <Text style={styles.factorReasonTitle}>Why?</Text>
+                    <Text style={styles.factorReasonTitle}>Reasoning & Audit Signal:</Text>
                     <Text style={styles.factorReasonText}>{factor.reason}</Text>
                   </View>
                 ) : null}
@@ -179,11 +211,62 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({ assessme
         </View>
       </View>
 
-      {/* Security Wording Notice */}
+      {/* Supporting Signals Section */}
+      <View style={styles.supportingSection}>
+        <Text style={styles.factorsSectionTitle}>SUPPORTING SIGNALS</Text>
+        <View style={styles.supportingGrid}>
+          {/* Expiry Signal */}
+          <View style={styles.supportingCard}>
+            <Text style={styles.supportingLabel}>Passport Validity</Text>
+            <Text style={styles.supportingReason}>
+              {supporting_signals?.expiry?.reason || 'Within valid date threshold'}
+            </Text>
+            {renderStatusBadge(supporting_signals?.expiry?.status || 'PASS')}
+          </View>
+
+          {/* Image Quality Signal */}
+          <View style={styles.supportingCard}>
+            <Text style={styles.supportingLabel}>Image Quality</Text>
+            <Text style={styles.supportingReason}>
+              {supporting_signals?.image_quality?.reason || 'Image resolution & lighting acceptable'}
+            </Text>
+            {renderStatusBadge(supporting_signals?.image_quality?.status || 'PASS')}
+          </View>
+        </View>
+      </View>
+
+      {/* Expandable "Why this score?" Section */}
+      <TouchableOpacity
+        onPress={() => setShowExplanation(!showExplanation)}
+        style={styles.whyHeaderBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Toggle Why this score breakdown"
+      >
+        <Text style={styles.whyTitle}>Why this score?</Text>
+        {showExplanation ? (
+          <ChevronUp size={16} color={colors.primaryNavy} />
+        ) : (
+          <ChevronDown size={16} color={colors.primaryNavy} />
+        )}
+      </TouchableOpacity>
+
+      {showExplanation ? (
+        <View style={styles.whyExplanationCard}>
+          <Text style={styles.whyHeader}>Risk Score Breakdown</Text>
+          {primaryChecksList.map((f) => (
+            <View key={f.name} style={styles.whyRow}>
+              <Text style={styles.whyFactorName}>{f.name}</Text>
+              <Text style={styles.whyFactorPoints}>{f.points} pts ({f.status})</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* Security Wording Disclaimer */}
       <View style={styles.disclaimerBox}>
         <Info size={13} color={colors.secondaryNavy} />
         <Text style={styles.disclaimerText}>
-          This risk score is an AI decision-support screening signal. Final clearance decision remains with the officer.
+          This risk score is an explainable decision-support screening signal. Final clearance decision remains with the border control officer.
         </Text>
       </View>
     </View>
@@ -344,13 +427,18 @@ const styles = StyleSheet.create({
   factorsSection: {
     marginBottom: spacing.md,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
   factorsSectionTitle: {
     fontFamily: typography.label.fontFamily,
     fontSize: 10,
     fontWeight: '700',
     color: colors.mutedText,
     letterSpacing: 0.8,
-    marginBottom: spacing.xs,
   },
   factorsList: {
     gap: 6,
@@ -380,20 +468,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primaryNavy,
   },
-  factorStatus: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: 11,
-    color: colors.secondaryText,
-  },
   factorRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
   },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+  },
+  badgePass: {
+    backgroundColor: colors.softMint,
+  },
+  badgeReview: {
+    backgroundColor: colors.warningBg,
+  },
+  badgeFail: {
+    backgroundColor: colors.dangerBg,
+  },
+  badgeNotAvailable: {
+    backgroundColor: '#F1F5F9',
+  },
+  badgeText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 10,
+    fontWeight: '800',
+  },
   pointsBadgeText: {
     fontFamily: typography.caption.fontFamily,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+    minWidth: 45,
+    textAlign: 'right',
   },
   pointsPenalized: {
     color: colors.warning,
@@ -420,6 +530,82 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     lineHeight: 16,
   },
+  supportingSection: {
+    marginBottom: spacing.md,
+  },
+  supportingGrid: {
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  supportingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  supportingLabel: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+  },
+  supportingReason: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: colors.secondaryText,
+    flex: 1,
+    marginHorizontal: spacing.sm,
+  },
+  whyHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xs,
+  },
+  whyTitle: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+  },
+  whyExplanationCard: {
+    backgroundColor: colors.paleBlue,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  whyHeader: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+    marginBottom: spacing.xs,
+  },
+  whyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  whyFactorName: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    color: colors.primaryNavy,
+  },
+  whyFactorPoints: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.secondaryText,
+  },
   disclaimerBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -427,6 +613,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.softBlue,
     padding: spacing.sm,
     borderRadius: radius.md,
+    marginTop: spacing.xs,
   },
   disclaimerText: {
     fontFamily: typography.caption.fontFamily,

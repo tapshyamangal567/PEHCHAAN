@@ -11,6 +11,8 @@ import {
   Maximize2,
   X,
   Cpu,
+  Info,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { TamperingAnalysisResult } from '../../../services/screeningService';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
@@ -24,35 +26,161 @@ export const TamperingAnalysisCard: React.FC<TamperingAnalysisCardProps> = ({
   analysis,
   documentUri,
 }) => {
-  const [showSignals, setShowSignals] = useState(false);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [showRegionModal, setShowRegionModal] = useState(false);
 
-  if (!analysis) return null;
-
-  const { status, score, signals, suspicious_regions, reasons, method } = analysis;
-
-  const isLow = status === 'LOW_SUSPICION';
-  const isMed = status === 'MEDIUM_SUSPICION';
-  const isHigh = status === 'HIGH_SUSPICION';
-  const isInconclusive = status === 'INCONCLUSIVE';
-
-  const renderSignalProgress = (label: string, value: number) => {
-    const percent = Math.round(value * 100);
-    let barColor: string = colors.success;
-    if (value >= 0.35 && value < 0.50) barColor = colors.warning;
-    if (value >= 0.50) barColor = colors.danger;
-
+  // 1. DATA MISSING / NULL CASE
+  if (!analysis) {
     return (
-      <View key={label} style={styles.signalRow}>
-        <View style={styles.signalHeader}>
-          <Text style={styles.signalLabel}>{label}</Text>
-          <Text style={[styles.signalPercent, { color: barColor }]}>{percent}%</Text>
+      <View style={styles.cardContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.headerTitleRow}>
+            <ScanEye size={16} color={colors.secondaryNavy} />
+            <Text style={styles.sectionTitle}>DOCUMENT AUTHENTICITY ANALYSIS</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>Image forensic assessment</Text>
         </View>
-        <View style={styles.progressBarTrack}>
-          <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(4, percent))}%`, backgroundColor: barColor }]} />
+
+        <View style={styles.unavailableBanner}>
+          <HelpCircle size={22} color={colors.mutedText} />
+          <View style={styles.unavailableTextCol}>
+            <Text style={styles.unavailableTitle}>AUTHENTICITY ANALYSIS UNAVAILABLE</Text>
+            <Text style={styles.unavailableSubtext}>
+              No reliable forensic signal was returned for this document.
+            </Text>
+          </View>
         </View>
+
+        <Text style={styles.disclaimerText}>
+          Automated image forensics provides screening signals only. It does not independently establish document authenticity. Final verification remains with the authorized officer.
+        </Text>
       </View>
     );
+  }
+
+  const { status, score = 0, signals, suspicious_regions, reasons, method, model_version } = analysis;
+
+  // 2. DYNAMIC SCORE MAPPING & CLASSIFICATION (UI interpretation thresholds)
+  const percentScore = Math.round(score * 100);
+
+  let resultTitle: string = 'LOW FORENSIC SIGNAL';
+  let resultDescription: string = 'No strong visual or texture anomalies detected. Standard screening procedures apply.';
+  let categoryColor: string = colors.success;
+  let categoryBg: string = colors.softMint;
+  let categoryBorder: string = 'rgba(46, 125, 91, 0.25)';
+  let CategoryIcon: React.ComponentType<{ size?: number; color?: string }> = ShieldCheck;
+
+  if (status === 'INCONCLUSIVE') {
+    resultTitle = '⚠ Inconclusive Forensic Assessment';
+    resultDescription = 'Image quality limits reliable forensic assessment. Manual review recommended.';
+    categoryColor = colors.secondaryText;
+    categoryBg = colors.paleBlue;
+    categoryBorder = colors.border;
+    CategoryIcon = HelpCircle;
+  } else if (status === 'HIGH_SUSPICION' || score >= 0.50) {
+    resultTitle = '⚠ High Tampering Suspicion';
+    resultDescription = 'Multiple agreeing forensic anomalies indicate possible localized manipulation. Manual verification required.';
+    categoryColor = colors.danger;
+    categoryBg = colors.dangerBg;
+    categoryBorder = 'rgba(180, 35, 24, 0.25)';
+    CategoryIcon = AlertCircle;
+  } else if (status === 'MEDIUM_SUSPICION' || score >= 0.20) {
+    resultTitle = '⚠ Medium Tampering Suspicion';
+    resultDescription = 'Localized compression or texture anomalies detected. Manual review is recommended.';
+    categoryColor = colors.warning;
+    categoryBg = colors.warningBg;
+    categoryBorder = 'rgba(183, 121, 31, 0.25)';
+    CategoryIcon = AlertTriangle;
+  } else {
+    resultTitle = '✓ Low Tampering Suspicion';
+    resultDescription = 'No significant localized forensic anomaly detected. Standard screening procedures apply.';
+    categoryColor = colors.success;
+    categoryBg = colors.softMint;
+    categoryBorder = 'rgba(46, 125, 91, 0.25)';
+    CategoryIcon = ShieldCheck;
+  }
+
+  // 3. FORENSIC ASSESSMENT CHECKS MATRIX
+  const assessmentChecks = [
+    {
+      name: 'Image Quality',
+      status: status === 'INCONCLUSIVE' ? 'REVIEW' : 'PASS',
+      label: status === 'INCONCLUSIVE' ? 'Low Resolution / Blur' : 'Sufficient Quality',
+    },
+    {
+      name: 'Compression Consistency',
+      status: signals?.compression_anomaly == null ? 'NOT AVAILABLE' : signals.compression_anomaly < 0.35 ? 'PASS' : 'REVIEW',
+      label: signals?.compression_anomaly == null ? 'Signal N/A' : signals.compression_anomaly < 0.35 ? 'Uniform Compression' : 'Compression Anomaly',
+    },
+    {
+      name: 'Text / Edge Consistency',
+      status: signals?.edge_anomaly == null ? 'NOT AVAILABLE' : signals.edge_anomaly < 0.35 ? 'PASS' : 'REVIEW',
+      label: signals?.edge_anomaly == null ? 'Signal N/A' : signals.edge_anomaly < 0.35 ? 'Consistent Edges' : 'Edge Density Variance',
+    },
+    {
+      name: 'Localized Artifacts',
+      status: !suspicious_regions || suspicious_regions.length === 0 ? 'PASS' : 'REVIEW',
+      label: !suspicious_regions || suspicious_regions.length === 0 ? 'None Flagged' : `${suspicious_regions.length} Patch(es) Flagged`,
+    },
+    {
+      name: 'Overall Forensic Signal',
+      status: score < 0.35 ? 'PASS' : 'REVIEW',
+      label: score < 0.35 ? 'Within Baseline' : 'Elevated Signal',
+    },
+  ];
+
+  // 4. RECOMMENDED ACTION DETERMINATION
+  let actionTitle: string = 'Routine verification';
+  let actionSubtext: string = 'Proceed with standard identity verification procedures.';
+  let actionBadgeColor: string = colors.success;
+
+  if (score >= 0.75) {
+    actionTitle = 'Detailed manual inspection recommended';
+    actionSubtext = 'Thorough physical or secondary document inspection required.';
+    actionBadgeColor = colors.danger;
+  } else if (score >= 0.20) {
+    actionTitle = 'Manual verification recommended';
+    actionSubtext = 'Conduct secondary document review before finalizing decision.';
+    actionBadgeColor = colors.warning;
+  }
+
+  // Helper for human-readable reason mapping
+  const mapReasonToDetail = (reasonStr: string) => {
+    const lower = reasonStr.toLowerCase();
+    if (lower.includes('compression')) {
+      return {
+        title: 'Localized Compression Anomaly',
+        description: 'Compression pattern variations detected across image sectors.',
+      };
+    }
+    if (lower.includes('texture')) {
+      return {
+        title: 'Texture Pattern Variance',
+        description: 'Surface texture distribution exhibits localized variation.',
+      };
+    }
+    if (lower.includes('noise')) {
+      return {
+        title: 'Noise Pattern Anomaly',
+        description: 'Noise profile exhibits non-uniform distribution across document regions.',
+      };
+    }
+    if (lower.includes('edge') || lower.includes('boundary')) {
+      return {
+        title: 'Localized Image Artifact',
+        description: 'A region of the image contains edge or boundary characteristics that differ from surrounding areas.',
+      };
+    }
+    if (lower.includes('illumination') || lower.includes('light')) {
+      return {
+        title: 'Illumination Gradient Anomaly',
+        description: 'Light distribution across the document surface shows non-uniform gradients.',
+      };
+    }
+    return {
+      title: 'Observed Forensic Signal',
+      description: reasonStr,
+    };
   };
 
   return (
@@ -63,88 +191,77 @@ export const TamperingAnalysisCard: React.FC<TamperingAnalysisCardProps> = ({
           <ScanEye size={16} color={colors.secondaryNavy} />
           <Text style={styles.sectionTitle}>DOCUMENT AUTHENTICITY ANALYSIS</Text>
         </View>
-        <Text style={styles.sectionSubtitle}>AI-assisted image forensic assessment</Text>
+        <Text style={styles.sectionSubtitle}>Image forensic assessment</Text>
       </View>
 
-      {/* Main Status Banner */}
-      <View
-        style={[
-          styles.statusBanner,
-          isLow
-            ? styles.bannerLow
-            : isMed
-            ? styles.bannerMed
-            : isHigh
-            ? styles.bannerHigh
-            : styles.bannerInconclusive,
-        ]}
-      >
-        <View
-          style={[
-            styles.bannerIconCircle,
-            isLow
-              ? styles.iconLow
-              : isMed
-              ? styles.iconMed
-              : isHigh
-              ? styles.iconHigh
-              : styles.iconInconclusive,
-          ]}
-        >
-          {isLow ? (
-            <ShieldCheck size={22} color={colors.success} />
-          ) : isMed ? (
-            <AlertTriangle size={22} color={colors.warning} />
-          ) : isHigh ? (
-            <AlertCircle size={22} color={colors.danger} />
-          ) : (
-            <HelpCircle size={22} color={colors.mutedText} />
-          )}
+      {/* Main Result Card */}
+      <View style={[styles.statusBanner, { backgroundColor: categoryBg, borderColor: categoryBorder }]}>
+        <View style={styles.bannerIconCircle}>
+          <CategoryIcon size={22} color={categoryColor} />
         </View>
 
         <View style={styles.bannerTextCol}>
-          <Text
-            style={[
-              styles.bannerTitleText,
-              isLow
-                ? styles.titleLow
-                : isMed
-                ? styles.titleMed
-                : isHigh
-                ? styles.titleHigh
-                : styles.titleInconclusive,
-            ]}
-          >
-            {isLow
-              ? 'Low Tampering Suspicion'
-              : isMed
-              ? 'Medium Tampering Suspicion'
-              : isHigh
-              ? 'High Tampering Suspicion'
-              : 'Inconclusive Assessment'}
-          </Text>
+          <Text style={[styles.bannerTitleText, { color: categoryColor }]}>{resultTitle}</Text>
+          <Text style={styles.bannerSubtext}>{resultDescription}</Text>
+        </View>
+      </View>
 
-          <Text style={styles.bannerSubtext}>
-            {isLow
-              ? 'No strong forensic anomalies detected across image compression or texture layers.'
-              : isMed
-              ? 'Localized compression or texture anomalies detected. Manual review recommended.'
-              : isHigh
-              ? 'Multiple strong forensic anomalies detected across image layers. Manual review required.'
-              : 'Image resolution or contrast is insufficient for reliable forensic analysis.'}
+      {/* Forensic Assessment Checks Table */}
+      <View style={styles.assessmentBox}>
+        <Text style={styles.boxHeaderTitle}>FORENSIC ASSESSMENT</Text>
+        <View style={styles.checksList}>
+          {assessmentChecks.map((item, idx) => {
+            const isPass = item.status === 'PASS';
+            const isReview = item.status === 'REVIEW';
+            const badgeBg = isPass ? colors.softMint : isReview ? colors.warningBg : '#F3F4F6';
+            const badgeText = isPass ? colors.success : isReview ? colors.warning : colors.mutedText;
+
+            return (
+              <View key={idx} style={styles.checkRow}>
+                <View style={styles.checkLeft}>
+                  <Text style={styles.checkName}>{item.name}</Text>
+                  <Text style={styles.checkMeta}>{item.label}</Text>
+                </View>
+                <View style={[styles.checkBadge, { backgroundColor: badgeBg }]}>
+                  <Text style={[styles.checkBadgeLabel, { color: badgeText }]}>{item.status}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Suspicion Score Visualizer Card */}
+      <View style={styles.scoreCard}>
+        <View style={styles.scoreHeaderRow}>
+          <Text style={styles.scoreTitle}>Image Forensic Signal</Text>
+          <Text style={styles.scoreValueText}>
+            <Text style={styles.scoreNumber}>{percentScore}</Text> / 100
+          </Text>
+        </View>
+
+        {/* Progress Bar Track */}
+        <View style={styles.progressBarTrack}>
+          <View
+            style={[
+              styles.progressBarFill,
+              {
+                width: `${Math.min(100, Math.max(4, percentScore))}%`,
+                backgroundColor: categoryColor,
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.scoreExplRow}>
+          <Info size={13} color={colors.secondaryText} />
+          <Text style={styles.scoreExplText}>
+            This score represents image-forensic signals only. It does not confirm that the passport is fraudulent.
           </Text>
         </View>
       </View>
 
-      {/* Methodology Badge */}
-      <View style={styles.methodPill}>
-        <Cpu size={12} color={colors.secondaryNavy} />
-        <Text style={styles.methodPillText}>
-          Method: OpenCV Forensic Baseline (baseline-1.0) • Score: {score.toFixed(2)}
-        </Text>
-      </View>
-
-      {/* Suspicious Regions Alert Banner (if regions detected) */}
+      {/* Suspicious Regions Alert Banner (if regions flagged) */}
       {suspicious_regions && suspicious_regions.length > 0 ? (
         <View style={styles.regionsAlertCard}>
           <View style={styles.regionsAlertHeader}>
@@ -169,46 +286,102 @@ export const TamperingAnalysisCard: React.FC<TamperingAnalysisCardProps> = ({
         </View>
       ) : null}
 
-      {/* Explainable Reasons */}
-      {reasons && reasons.length > 0 ? (
-        <View style={styles.reasonsBox}>
-          <Text style={styles.reasonsHeaderTitle}>FORENSIC FINDINGS</Text>
-          {reasons.map((reason, idx) => (
-            <View key={idx} style={styles.reasonRow}>
-              <View style={styles.reasonBullet} />
-              <Text style={styles.reasonText}>{reason}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
+      {/* Detected Signals / Forensic Findings */}
+      <View style={styles.findingsBox}>
+        <Text style={styles.boxHeaderTitle}>DETECTED SIGNALS</Text>
+        {reasons && reasons.length > 0 ? (
+          reasons.map((reason, idx) => {
+            const detail = mapReasonToDetail(reason);
+            return (
+              <View key={idx} style={styles.findingCard}>
+                <View style={styles.findingHeader}>
+                  <View style={styles.findingDot} />
+                  <Text style={styles.findingTitle}>{detail.title}</Text>
+                </View>
+                <Text style={styles.findingDesc}>{detail.description}</Text>
+              </View>
+            );
+          })
+        ) : (
+          <View style={styles.noFindingRow}>
+            <CheckCircle2 size={14} color={colors.success} />
+            <Text style={styles.noFindingText}>No localized anomalies detected across scanned layers.</Text>
+          </View>
+        )}
+      </View>
 
-      {/* Expandable Forensic Signals */}
+      {/* Recommended Action Card */}
+      <View style={styles.actionCard}>
+        <View style={styles.actionHeaderRow}>
+          <Text style={styles.actionHeaderTitle}>RECOMMENDED ACTION</Text>
+          <View style={[styles.actionPill, { backgroundColor: actionBadgeColor }]}>
+            <Text style={styles.actionPillText}>{actionTitle}</Text>
+          </View>
+        </View>
+        <Text style={styles.actionSubtext}>{actionSubtext}</Text>
+        <Text style={styles.actionOfficerNote}>
+          Note: Final verification decision remains with the authorized officer.
+        </Text>
+      </View>
+
+      {/* Collapsible Technical Details */}
       <TouchableOpacity
-        onPress={() => setShowSignals(!showSignals)}
-        style={styles.toggleSignalsBtn}
+        onPress={() => setShowTechnicalDetails(!showTechnicalDetails)}
+        style={styles.techToggleBtn}
         activeOpacity={0.7}
       >
-        <Text style={styles.toggleSignalsText}>
-          {showSignals ? 'Hide Forensic Signals' : 'View Measurable Forensic Signals'}
-        </Text>
-        {showSignals ? (
+        <View style={styles.techToggleLeft}>
+          <Cpu size={14} color={colors.primaryNavy} />
+          <Text style={styles.techToggleText}>Technical Details</Text>
+        </View>
+        {showTechnicalDetails ? (
           <ChevronUp size={16} color={colors.primaryNavy} />
         ) : (
           <ChevronDown size={16} color={colors.primaryNavy} />
         )}
       </TouchableOpacity>
 
-      {showSignals ? (
-        <View style={styles.signalsContainer}>
-          {renderSignalProgress('Compression Anomaly (ELA)', signals.compression_anomaly)}
-          {renderSignalProgress('Texture Pattern Variance', signals.texture_anomaly)}
-          {renderSignalProgress('High-Freq Noise Distribution', signals.noise_anomaly)}
-          {renderSignalProgress('Edge Boundary Consistency', signals.edge_anomaly)}
-          {renderSignalProgress('Illumination Gradient', signals.illumination_anomaly)}
+      {showTechnicalDetails ? (
+        <View style={styles.techDetailsBox}>
+          <View style={styles.techRow}>
+            <Text style={styles.techLabel}>Analysis Engine:</Text>
+            <Text style={styles.techValue}>Image Forensics</Text>
+          </View>
+          <View style={styles.techRow}>
+            <Text style={styles.techLabel}>Method:</Text>
+            <Text style={styles.techValue}>{method || 'OpenCV Forensic Baseline'}</Text>
+          </View>
+          <View style={styles.techRow}>
+            <Text style={styles.techLabel}>Version:</Text>
+            <Text style={styles.techValue}>{model_version || 'baseline-1.0'}</Text>
+          </View>
+          <View style={styles.techRow}>
+            <Text style={styles.techLabel}>Score:</Text>
+            <Text style={styles.techValue}>{score.toFixed(2)}</Text>
+          </View>
+
+          {signals ? (
+            <View style={styles.signalsSubbox}>
+              <Text style={styles.signalsSubboxTitle}>Available Signal Metrics:</Text>
+              {Object.entries(signals).map(([key, val]) => (
+                <View key={key} style={styles.signalMetricRow}>
+                  <Text style={styles.signalMetricKey}>{key.replace(/_/g, ' ')}:</Text>
+                  <Text style={styles.signalMetricVal}>
+                    {typeof val === 'number' ? val.toFixed(2) : String(val)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
 
-      {/* Suspicious Region Modal Overlay */}
+      {/* Mandatory Disclaimer */}
+      <Text style={styles.disclaimerText}>
+        Automated image forensics provides screening signals only. It does not independently establish document authenticity. Final verification remains with the authorized officer.
+      </Text>
+
+      {/* Suspicious Region Inspector Modal Overlay */}
       {showRegionModal && documentUri ? (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowRegionModal(false)}>
           <View style={styles.modalOverlay}>
@@ -269,6 +442,32 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     marginTop: 2,
   },
+  unavailableBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.paleBlue,
+    marginBottom: spacing.md,
+  },
+  unavailableTextCol: {
+    flex: 1,
+  },
+  unavailableTitle: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.secondaryNavy,
+    marginBottom: 2,
+  },
+  unavailableSubtext: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    color: colors.secondaryText,
+  },
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -278,40 +477,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: spacing.md,
   },
-  bannerLow: {
-    backgroundColor: colors.softMint,
-    borderColor: 'rgba(46, 125, 91, 0.25)',
-  },
-  bannerMed: {
-    backgroundColor: colors.warningBg,
-    borderColor: 'rgba(183, 121, 31, 0.25)',
-  },
-  bannerHigh: {
-    backgroundColor: colors.dangerBg,
-    borderColor: 'rgba(180, 35, 24, 0.25)',
-  },
-  bannerInconclusive: {
-    backgroundColor: colors.paleBlue,
-    borderColor: colors.border,
-  },
   bannerIconCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconLow: {
-    backgroundColor: 'rgba(46, 125, 91, 0.12)',
-  },
-  iconMed: {
-    backgroundColor: 'rgba(183, 121, 31, 0.12)',
-  },
-  iconHigh: {
-    backgroundColor: 'rgba(180, 35, 24, 0.12)',
-  },
-  iconInconclusive: {
-    backgroundColor: 'rgba(102, 112, 133, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   bannerTextCol: {
     flex: 1,
@@ -322,32 +494,113 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 2,
   },
-  titleLow: { color: colors.success },
-  titleMed: { color: colors.warning },
-  titleHigh: { color: colors.danger },
-  titleInconclusive: { color: colors.secondaryText },
   bannerSubtext: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 12,
     color: colors.primaryText,
     lineHeight: 16,
   },
-  methodPill: {
+  assessmentBox: {
+    backgroundColor: colors.paleBlue,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  boxHeaderTitle: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.mutedText,
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  checksList: {
+    gap: spacing.xs,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  checkLeft: {
+    flex: 1,
+  },
+  checkName: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primaryNavy,
+  },
+  checkMeta: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: colors.secondaryText,
+  },
+  checkBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  checkBadgeLabel: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  scoreCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  scoreHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  scoreTitle: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+  },
+  scoreValueText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 13,
+    color: colors.secondaryText,
+  },
+  scoreNumber: {
+    fontFamily: typography.h3.fontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+  },
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: colors.paleBlue,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  scoreExplRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.paleBlue,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    marginBottom: spacing.md,
-    alignSelf: 'flex-start',
+    marginTop: 2,
   },
-  methodPillText: {
+  scoreExplText: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.secondaryNavy,
+    color: colors.secondaryText,
+    flex: 1,
+    lineHeight: 14,
   },
   regionsAlertCard: {
     backgroundColor: colors.dangerBg,
@@ -391,83 +644,185 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
   },
-  reasonsBox: {
+  findingsBox: {
     backgroundColor: colors.paleBlue,
-    padding: spacing.md,
     borderRadius: radius.md,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
-  reasonsHeaderTitle: {
+  findingCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  findingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  findingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.secondaryNavy,
+  },
+  findingTitle: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+  },
+  findingDesc: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: colors.secondaryText,
+    paddingLeft: 12,
+  },
+  noFindingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  noFindingText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: '600',
+  },
+  actionCard: {
+    backgroundColor: colors.paleBlue,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  actionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  actionHeaderTitle: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 10,
     fontWeight: '700',
     color: colors.mutedText,
     letterSpacing: 0.5,
-    marginBottom: spacing.xs,
   },
-  reasonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  actionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  actionPillText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  actionSubtext: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primaryNavy,
     marginBottom: 4,
   },
-  reasonBullet: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.secondaryNavy,
-  },
-  reasonText: {
+  actionOfficerNote: {
     fontFamily: typography.caption.fontFamily,
-    fontSize: 12,
-    color: colors.primaryNavy,
-    fontWeight: '500',
+    fontSize: 11,
+    color: colors.secondaryText,
+    fontStyle: 'italic',
   },
-  toggleSignalsBtn: {
+  techToggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    marginTop: spacing.xs,
   },
-  toggleSignalsText: {
+  techToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  techToggleText: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 12,
     fontWeight: '700',
     color: colors.primaryNavy,
   },
-  signalsContainer: {
-    marginTop: spacing.sm,
-    gap: spacing.sm,
+  techDetailsBox: {
+    backgroundColor: '#1E293B',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: 4,
   },
-  signalRow: {
+  techRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  techLabel: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  techValue: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F8FAFC',
+  },
+  signalsSubbox: {
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
     gap: 2,
   },
-  signalHeader: {
+  signalsSubboxTitle: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  signalMetricRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  signalLabel: {
+  signalMetricKey: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
-    color: colors.secondaryText,
+    color: '#CBD5E1',
+    textTransform: 'capitalize',
   },
-  signalPercent: {
+  signalMetricVal: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
     fontWeight: '700',
+    color: '#38BDF8',
   },
-  progressBarTrack: {
-    height: 6,
-    backgroundColor: colors.paleBlue,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
+  disclaimerText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: colors.mutedText,
+    lineHeight: 15,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
   },
   modalOverlay: {
     flex: 1,

@@ -109,7 +109,10 @@ async def process_passport(file: UploadFile = File(...)):
         # 10. Perform Image Forensic Tampering Analysis
         tampering_analysis_dict = tampering_detection_service.analyze(pil_image)
 
-        # 11. Calculate Metadata
+        # 11. Perform Image Quality Analysis (Resolution, Sharpness/Blur, Brightness, Contrast, Compression)
+        image_quality_dict = image_service.analyze_image_quality(pil_image)
+
+        # 12. Calculate Metadata
         processing_time_ms = round((time.time() - start_time) * 1000, 2)
         combined_dict = combined_fields.model_dump()
         fields_extracted = sum(1 for val in combined_dict.values() if val is not None)
@@ -127,6 +130,7 @@ async def process_passport(file: UploadFile = File(...)):
             consistency=consistency_response,
             validation=validation_dict,
             tampering_analysis=tampering_analysis_dict,
+            image_quality=image_quality_dict,
             metadata=ScreeningMetadata(
                 processing_time_ms=processing_time_ms,
                 fields_extracted=fields_extracted,

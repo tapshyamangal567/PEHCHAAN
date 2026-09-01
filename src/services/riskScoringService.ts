@@ -10,16 +10,27 @@ export interface RiskFactorItem {
 }
 
 export interface RiskCoverageData {
-  available_checks: number;
+  completed_checks?: number;
+  available_checks?: number;
   total_checks: number;
   percentage: number;
+}
+
+export interface SupportingSignalItem {
+  status: string;
+  reason: string;
 }
 
 export interface RiskAssessmentData {
   score: number;
   level: RiskLevel;
   coverage: RiskCoverageData;
+  checks?: RiskFactorItem[];
   risk_factors: RiskFactorItem[];
+  supporting_signals?: {
+    expiry?: SupportingSignalItem;
+    image_quality?: SupportingSignalItem;
+  };
   verification_incomplete: boolean;
   recommendation: string;
 }

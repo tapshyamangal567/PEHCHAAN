@@ -12,6 +12,8 @@ import {
 import { ValidationResult, ValidationCheckItem } from '../../../services/screeningService';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
 
+import { normalizeValidationStatus } from '../../../utils/statusNormalizer';
+
 interface DocumentValidationCardProps {
   validation?: ValidationResult | null;
 }
@@ -21,33 +23,35 @@ export const DocumentValidationCard: React.FC<DocumentValidationCardProps> = ({ 
     return null;
   }
 
-  const { overall_status, checks, passed, failed, not_available } = validation;
+  const { checks, passed, failed, not_available } = validation;
+  const normalizedOverallStatus = normalizeValidationStatus(validation);
 
   const renderCheckRow = (key: string, title: string, item?: ValidationCheckItem) => {
     if (!item) return null;
 
     const { status, message } = item;
+    const s = (status || '').toUpperCase();
 
     let icon = <HelpCircle size={16} color={colors.mutedText} />;
     let badgeStyle: any = styles.badgeNotAvailable;
     let badgeTextStyle: any = styles.badgeTextNotAvailable;
     let labelText = 'N/A';
 
-    if (status === 'PASS') {
+    if (s === 'PASS') {
       icon = <CheckCircle2 size={16} color={colors.success} />;
       badgeStyle = styles.badgePass;
       badgeTextStyle = styles.badgeTextPass;
       labelText = 'PASS';
-    } else if (status === 'FAIL') {
+    } else if (s === 'FAIL') {
       icon = <XCircle size={16} color={colors.danger} />;
       badgeStyle = styles.badgeFail;
       badgeTextStyle = styles.badgeTextFail;
       labelText = 'FAIL';
-    } else if (status === 'REVIEW' || status === 'NOT_AVAILABLE') {
+    } else if (s === 'REVIEW') {
       icon = <AlertCircle size={16} color={colors.warning} />;
       badgeStyle = styles.badgeReview;
       badgeTextStyle = styles.badgeTextReview;
-      labelText = status === 'REVIEW' ? 'REVIEW' : 'N/A';
+      labelText = 'REVIEW';
     }
 
     return (
@@ -66,8 +70,8 @@ export const DocumentValidationCard: React.FC<DocumentValidationCardProps> = ({ 
     );
   };
 
-  const isPass = overall_status === 'PASS';
-  const isFail = overall_status === 'FAIL';
+  const isPass = normalizedOverallStatus === 'PASS';
+  const isFail = normalizedOverallStatus === 'FAIL';
 
   return (
     <View style={styles.cardContainer}>

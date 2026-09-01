@@ -27,7 +27,7 @@ class CombinationService:
         elif visual_fields.passport_number:
             pass_val = visual_fields.passport_number
             pass_conf = vis_conf
-            pass_src = "VISUAL_OCR"
+            pass_src = "OCR"
         else:
             pass_val = None
             pass_conf = 0.0
@@ -41,7 +41,7 @@ class CombinationService:
         elif visual_fields.nationality:
             nat_val = visual_fields.nationality
             nat_conf = vis_conf
-            nat_src = "VISUAL_OCR"
+            nat_src = "OCR"
         else:
             nat_val = None
             nat_conf = 0.0
@@ -55,7 +55,7 @@ class CombinationService:
         elif visual_fields.date_of_birth:
             dob_val = visual_fields.date_of_birth
             dob_conf = vis_conf
-            dob_src = "VISUAL_OCR"
+            dob_src = "OCR"
         else:
             dob_val = None
             dob_conf = 0.0
@@ -69,7 +69,7 @@ class CombinationService:
         elif visual_fields.gender:
             gen_val = visual_fields.gender
             gen_conf = vis_conf
-            gen_src = "VISUAL_OCR"
+            gen_src = "OCR"
         else:
             gen_val = None
             gen_conf = 0.0
@@ -83,7 +83,7 @@ class CombinationService:
         elif visual_fields.date_of_expiry:
             exp_val = visual_fields.date_of_expiry
             exp_conf = vis_conf
-            exp_src = "VISUAL_OCR"
+            exp_src = "OCR"
         else:
             exp_val = None
             exp_conf = 0.0
@@ -96,7 +96,7 @@ class CombinationService:
             if vis_name and (vis_name in mrz_name or mrz_name in vis_name):
                 name_val = mrz_name
                 name_conf = round(min(0.99, mrz_conf + 0.03), 2)
-                name_src = "VISUAL_AND_MRZ"
+                name_src = "MRZ"
             else:
                 name_val = mrz_name
                 name_conf = mrz_conf
@@ -104,7 +104,7 @@ class CombinationService:
         elif visual_fields.full_name:
             name_val = visual_fields.full_name
             name_conf = vis_conf
-            name_src = "VISUAL_OCR"
+            name_src = "OCR"
         else:
             name_val = None
             name_conf = 0.0
@@ -114,7 +114,7 @@ class CombinationService:
         if visual_fields.date_of_issue:
             doi_val = visual_fields.date_of_issue
             doi_conf = vis_conf
-            doi_src = "VISUAL_OCR"
+            doi_src = "OCR"
         else:
             doi_val = None
             doi_conf = 0.0

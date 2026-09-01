@@ -15,8 +15,8 @@ class TestTamperingDetectionService(unittest.TestCase):
     def test_normal_image_analysis(self):
         res = tampering_detection_service.analyze(self.sample_image)
         self.assertIn(res["status"], ["LOW_SUSPICION", "MEDIUM_SUSPICION", "HIGH_SUSPICION", "INCONCLUSIVE"])
-        self.assertIsNone(res["confidence"])
-        self.assertEqual(res["method"], "opencv_forensic_baseline")
+        self.assertIsNotNone(res["forensic_confidence"])
+        self.assertEqual(res["method"], "OpenCV Forensic Baseline — image-level screening")
         self.assertEqual(res["model_version"], "baseline-1.0")
         
         signals = res["signals"]
@@ -31,7 +31,7 @@ class TestTamperingDetectionService(unittest.TestCase):
         tiny_img = Image.new("RGB", (10, 10), color="white")
         res = tampering_detection_service.analyze(tiny_img)
         self.assertEqual(res["status"], "INCONCLUSIVE")
-        self.assertIn("quality is too low", res["reasons"][0].lower())
+        self.assertIn("image quality limits reliable forensic assessment", res["reasons"][0].lower())
 
     def test_detector_inheritance(self):
         detector = ForensicBaselineDetector()

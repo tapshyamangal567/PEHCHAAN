@@ -122,16 +122,21 @@ export const FaceVerificationScreen: React.FC = () => {
 
       setIsProcessing(true);
 
-      // Call backend face verification API
+      // Call backend face verification API with actual challenge completion payload
+      const challengeCompleted = livenessStep >= 3;
       const response = await FaceVerificationService.verifyFace(document.uri, photo.uri, {
-        challenges_completed: ['look_camera', 'turn_head_left'],
-        passed: true,
-        motion_detected: true,
+        challenge_type: 'turn_head_left',
+        challenge_started: true,
+        challenge_completed: challengeCompleted,
+        challenges_completed: challengeCompleted ? ['look_camera', 'turn_head_left'] : ['look_camera'],
+        passed: challengeCompleted,
+        motion_detected: challengeCompleted,
       });
 
       // Navigate to results screen
       navigation.navigate('FaceVerificationResult', {
         document,
+        screeningResponse,
         verificationResponse: response,
         liveFaceUri: photo.uri,
       });

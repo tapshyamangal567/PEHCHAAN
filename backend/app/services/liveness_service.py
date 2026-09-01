@@ -17,7 +17,11 @@ class LivenessDetector(ABC):
 
         Returns dict matching structure:
         {
-            "status": "PASS" | "FAIL" | "INCONCLUSIVE",
+            "status": "PASS" | "FAIL" | "REVIEW" | "NOT_AVAILABLE",
+            "challenge_type": str or None,
+            "challenge_started": bool,
+            "challenge_completed": bool,
+            "result": "PASS" | "FAIL" | "REVIEW" | "NOT_AVAILABLE",
             "confidence": float or None,
             "method": str,
             "message": str
@@ -39,40 +43,88 @@ class BasicLivenessDetector(LivenessDetector):
         self.method_name = "basic_challenge"
 
     def verify(self, liveness_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        if not liveness_data:
-            # Default fallback when simple capture is performed without client challenge payload
+        if not liveness_data or not isinstance(liveness_data, dict):
+            logger.info("Liveness challenge payload not provided -> NOT_AVAILABLE")
             return {
-                "status": "PASS",
+                "status": "NOT_AVAILABLE",
+                "challenge_type": None,
+                "challenge_started": False,
+                "challenge_completed": False,
+                "result": "NOT_AVAILABLE",
                 "confidence": None,
                 "method": self.method_name,
-                "message": "Basic face detection completed."
+                "message": "Liveness check unavailable."
             }
 
-        challenges_completed = liveness_data.get("challenges_completed", [])
-        passed_challenge = liveness_data.get("passed", False)
-        motion_detected = liveness_data.get("motion_detected", True)
+        challenge_type = liveness_data.get("challenge_type") or "blink"
+        challenge_started = liveness_data.get("challenge_started", False)
+        challenge_completed = liveness_data.get("challenge_completed", False)
+        passed = liveness_data.get("passed", False)
+        timed_out = liveness_data.get("timed_out", False)
+        multiple_faces = liveness_data.get("multiple_faces", False)
 
-        if not passed_challenge:
+        if multiple_faces:
+            logger.info("Multiple faces detected during liveness challenge -> REVIEW")
+            return {
+                "status": "REVIEW",
+                "challenge_type": challenge_type,
+                "challenge_started": challenge_started,
+                "challenge_completed": False,
+                "result": "REVIEW",
+                "confidence": None,
+                "method": self.method_name,
+                "message": "Multiple faces detected. Please ensure only the person being verified is visible."
+            }
+
+        if timed_out:
+            logger.info("Liveness challenge timed out -> REVIEW")
+            return {
+                "status": "REVIEW",
+                "challenge_type": challenge_type,
+                "challenge_started": challenge_started,
+                "challenge_completed": False,
+                "result": "REVIEW",
+                "confidence": None,
+                "method": self.method_name,
+                "message": "Liveness verification could not be completed."
+            }
+
+        if not challenge_started or not challenge_completed:
+            logger.info("Liveness challenge incomplete -> REVIEW")
+            return {
+                "status": "REVIEW",
+                "challenge_type": challenge_type,
+                "challenge_started": challenge_started,
+                "challenge_completed": challenge_completed,
+                "result": "REVIEW",
+                "confidence": None,
+                "method": self.method_name,
+                "message": "Unable to reliably establish live presence."
+            }
+
+        if not passed:
+            logger.info("Liveness challenge validation failed -> FAIL")
             return {
                 "status": "FAIL",
+                "challenge_type": challenge_type,
+                "challenge_started": challenge_started,
+                "challenge_completed": challenge_completed,
+                "result": "FAIL",
                 "confidence": None,
                 "method": self.method_name,
-                "message": "Liveness challenge was not completed."
+                "message": "Live interaction could not be verified."
             }
 
-        if not motion_detected:
-            return {
-                "status": "FAIL",
-                "confidence": None,
-                "method": self.method_name,
-                "message": "Insufficient natural face movement detected."
-            }
-
+        logger.info(f"Liveness challenge completed successfully -> PASS ({challenge_type})")
         return {
             "status": "PASS",
-            "confidence": None, # Explicitly null for basic non-certified detector as per security requirements
+            "challenge_type": challenge_type,
+            "challenge_started": True,
+            "challenge_completed": True,
+            "result": "PASS",
+            "confidence": None,
             "method": self.method_name,
-            "message": f"Basic challenge completed successfully ({', '.join(challenges_completed) if challenges_completed else 'interactive'})."
+            "message": "Live interaction successfully validated."
         }
 
 
@@ -86,9 +138,12 @@ class MLLivenessDetector(LivenessDetector):
         self.method_name = "ml_anti_spoofing"
 
     def verify(self, liveness_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        # Future extension for trained FasNet / Silent-Face anti-spoofing model
         return {
             "status": "INCONCLUSIVE",
+            "challenge_type": None,
+            "challenge_started": False,
+            "challenge_completed": False,
+            "result": "INCONCLUSIVE",
             "confidence": None,
             "method": self.method_name,
             "message": "ML anti-spoofing model not initialized."

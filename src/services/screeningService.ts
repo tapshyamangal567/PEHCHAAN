@@ -21,11 +21,26 @@ export interface OCRResult {
   confidence: number;
 }
 
+export interface ChecksumFieldItem {
+  value?: string;
+  check_digit?: string;
+  valid?: boolean;
+}
+
 export interface MRZResponseData {
   detected: boolean;
+  status?: 'PASS' | 'REVIEW' | 'FAIL';
+  structure_valid?: boolean;
   line1: string | null;
   line2: string | null;
   checksum_valid: boolean | null;
+  checksum_details?: {
+    passport_number?: ChecksumFieldItem;
+    date_of_birth?: ChecksumFieldItem;
+    date_of_expiry?: ChecksumFieldItem;
+    optional?: ChecksumFieldItem;
+    composite?: ChecksumFieldItem;
+  };
 }
 
 export interface ConsistencyCheckResponse {
@@ -73,11 +88,20 @@ export interface TamperingSignals {
   illumination_anomaly: number;
 }
 
+export interface ForensicSignalEvidence {
+  name: string;
+  value: number;
+  status: 'NORMAL' | 'ANOMALY';
+}
+
 export interface TamperingAnalysisResult {
   status: 'LOW_SUSPICION' | 'MEDIUM_SUSPICION' | 'HIGH_SUSPICION' | 'INCONCLUSIVE';
   score: number;
+  suspicion_score?: number;
+  forensic_confidence?: number;
   confidence: number | null;
   signals: TamperingSignals;
+  structured_signals?: ForensicSignalEvidence[];
   suspicious_regions: SuspiciousRegion[];
   reasons: string[];
   method: string;

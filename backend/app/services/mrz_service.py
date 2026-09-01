@@ -94,6 +94,23 @@ class MRZService:
         return variants
 
     @staticmethod
+    def normalize_mrz_line(raw_line: str) -> str:
+        """
+        Normalizes a candidate MRZ line string:
+        - uppercase letters
+        - remove unnecessary whitespace
+        - preserve '<'
+        - preserve meaningful alphanumeric characters
+        - remove obvious non-MRZ noise characters
+        - never modifies original OCR text
+        """
+        if not raw_line:
+            return ""
+        s = raw_line.upper().replace(" ", "")
+        cleaned = re.sub(r'[^A-Z0-9<]', '', s)
+        return cleaned
+
+    @staticmethod
     def extract_mrz_candidates_from_ocr(reader, image_np: np.ndarray) -> list[dict]:
         """
         Runs EasyOCR on an MRZ crop variant with allowlist: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<
@@ -102,7 +119,7 @@ class MRZService:
         results = reader.readtext(image_np, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<')
         blocks = []
         for bbox, text, prob in results:
-            cleaned = text.strip().upper()
+            cleaned = MRZService.normalize_mrz_line(text)
             if cleaned:
                 blocks.append({
                     "text": cleaned,
@@ -144,16 +161,16 @@ class MRZService:
         current_group = [parsed_blocks[0]]
 
         for b in parsed_blocks[1:]:
-            last_y = current_group[-1]["y_center"]
+            avg_group_y = sum(item["y_center"] for item in current_group) / float(len(current_group))
             avg_height = (current_group[-1]["height"] + b["height"]) / 2.0
-            threshold = max(10.0, avg_height * 0.6)
+            threshold = max(12.0, avg_height * 0.7)
 
-            if abs(b["y_center"] - last_y) <= threshold:
+            if abs(b["y_center"] - avg_group_y) <= threshold:
                 current_group.append(b)
             else:
                 current_group.sort(key=lambda item: item["x_left"])
                 line_str = "".join([item["text"] for item in current_group])
-                cleaned = re.sub(r'[^A-Z0-9<]', '', line_str)
+                cleaned = MRZService.normalize_mrz_line(line_str)
                 if cleaned:
                     lines.append(cleaned)
                 current_group = [b]
@@ -161,7 +178,7 @@ class MRZService:
         if current_group:
             current_group.sort(key=lambda item: item["x_left"])
             line_str = "".join([item["text"] for item in current_group])
-            cleaned = re.sub(r'[^A-Z0-9<]', '', line_str)
+            cleaned = MRZService.normalize_mrz_line(line_str)
             if cleaned:
                 lines.append(cleaned)
 
@@ -192,19 +209,19 @@ class MRZService:
         elif 30 <= len2 < 40 or 46 < len2 <= 50:
             score += 0.10
 
-        if abs(len1 - len2) <= 4:
+        if abs(len1 - len2) <= 6:
             score += 0.10
 
-        if line1.startswith('P<') or line1.startswith('P'):
+        if line1.startswith('P<') or line1.startswith('P') or '<' in line1:
             score += 0.15
 
-        if line1.count('<') >= 3:
+        if line1.count('<') >= 2:
             score += 0.10
 
         digits_line2 = sum(1 for c in line2 if c.isdigit())
-        if digits_line2 >= 10:
+        if digits_line2 >= 8:
             score += 0.15
-        elif digits_line2 >= 5:
+        elif digits_line2 >= 4:
             score += 0.08
 
         if line2.count('<') >= 2:

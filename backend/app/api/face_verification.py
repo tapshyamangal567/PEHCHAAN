@@ -24,13 +24,13 @@ async def verify_face(
     try:
         # Read passport image bytes
         passport_bytes = await passport_image.read()
-        passport_pil = image_service.process_upload_bytes(passport_bytes, passport_image.content_type)
+        passport_pil = image_service.process_upload_bytes(passport_bytes, passport_image.content_type).convert("RGB")
         # Convert PIL RGB to OpenCV BGR
         passport_bgr = np.array(passport_pil)[:, :, ::-1]
 
         # Read live face image bytes
         live_bytes = await live_face_image.read()
-        live_pil = image_service.process_upload_bytes(live_bytes, live_face_image.content_type)
+        live_pil = image_service.process_upload_bytes(live_bytes, live_face_image.content_type).convert("RGB")
         # Convert PIL RGB to OpenCV BGR
         live_bgr = np.array(live_pil)[:, :, ::-1]
 

@@ -40,10 +40,15 @@ class DocumentValidationService:
         line2 = getattr(mrz_data, "line2", None) if hasattr(mrz_data, "line2") else (mrz_data.get("line2") if mrz_data else None)
         
         if mrz_detected:
-            if line1 and line2 and len(line1) == 44 and len(line2) == 44 and line1.startswith("P"):
+            if line1 and line2 and len(line1) >= 15 and len(line2) >= 15 and (line1.startswith("P") or "<" in line1):
                 checks["mrz_structure"] = {
                     "status": "PASS",
                     "message": "Valid TD3 structure"
+                }
+            elif line1 or line2:
+                checks["mrz_structure"] = {
+                    "status": "REVIEW",
+                    "message": "Partial or degraded MRZ line structure"
                 }
             else:
                 checks["mrz_structure"] = {

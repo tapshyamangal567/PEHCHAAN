@@ -78,11 +78,14 @@ class TamperingSignals(BaseModel):
 class TamperingAnalysisResult(BaseModel):
     status: str = Field(..., description="Status: LOW_SUSPICION, MEDIUM_SUSPICION, HIGH_SUSPICION, or INCONCLUSIVE")
     score: float = Field(..., description="Weighted forensic score between 0.0 and 1.0")
-    confidence: Optional[float] = Field(default=None, description="Model confidence (null for baseline forensic detector)")
+    suspicion_score: Optional[float] = Field(default=None, description="Tampering suspicion score (0.0 to 1.0)")
+    forensic_confidence: Optional[float] = Field(default=None, description="Forensic confidence (0.0 to 1.0) based on image quality")
+    confidence: Optional[float] = Field(default=None, description="Model confidence score")
     signals: TamperingSignals = Field(default_factory=TamperingSignals)
+    structured_signals: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="List of individual calculated evidence signals")
     suspicious_regions: List[SuspiciousRegion] = Field(default_factory=list)
     reasons: List[str] = Field(default_factory=list)
-    method: str = Field(default="opencv_forensic_baseline")
+    method: str = Field(default="OpenCV Forensic Baseline — image-level screening")
     model_version: str = Field(default="baseline-1.0")
 
 class PassportScreeningResponse(BaseModel):
@@ -96,6 +99,7 @@ class PassportScreeningResponse(BaseModel):
     consistency: ConsistencyCheckResponse = Field(default_factory=ConsistencyCheckResponse)
     validation: Optional[ValidationResult] = None
     tampering_analysis: Optional[TamperingAnalysisResult] = None
+    image_quality: Optional[Dict[str, Any]] = Field(default=None, description="Image quality analysis metrics")
     metadata: ScreeningMetadata
 
 class ErrorDetail(BaseModel):

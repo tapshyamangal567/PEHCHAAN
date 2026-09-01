@@ -116,14 +116,30 @@ class ConsistencyService:
         if not norm_vis or not norm_mrz:
             return "NOT_AVAILABLE"
 
-        vis_tokens = set(norm_vis.split())
-        mrz_tokens = set(norm_mrz.split())
+        vis_tokens = norm_vis.split()
+        mrz_tokens = norm_mrz.split()
 
-        if vis_tokens == mrz_tokens or vis_tokens.issubset(mrz_tokens) or mrz_tokens.issubset(vis_tokens):
+        set_vis = set(vis_tokens)
+        set_mrz = set(mrz_tokens)
+
+        if set_vis == set_mrz or set_vis.issubset(set_mrz) or set_mrz.issubset(set_vis):
             return "PASS"
 
-        overlap = len(vis_tokens.intersection(mrz_tokens))
-        if overlap >= max(1, min(len(vis_tokens), len(mrz_tokens))):
+        # Check token-by-token fuzzy/substring match for OCR noise (e.g., ARJUN vs ARJUNA)
+        if len(vis_tokens) == len(mrz_tokens):
+            match_count = 0
+            for t_vis, t_mrz in zip(vis_tokens, mrz_tokens):
+                if t_vis == t_mrz or t_vis in t_mrz or t_mrz in t_vis:
+                    match_count += 1
+                elif abs(len(t_vis) - len(t_mrz)) <= 2:
+                    common = sum(1 for c in set(t_vis) if c in set(t_mrz))
+                    if common >= max(len(t_vis), len(t_mrz)) - 2:
+                        match_count += 1
+            if match_count == len(vis_tokens):
+                return "PASS"
+
+        overlap = len(set_vis.intersection(set_mrz))
+        if overlap >= max(1, min(len(set_vis), len(set_mrz))):
             return "PASS"
 
         return "FAIL"
@@ -139,9 +155,9 @@ class ConsistencyService:
         if norm_vis == norm_mrz:
             return "PASS"
 
-        # Apply conservative OCR character substitutions (O<->0, I<->1, Z<->2, S<->5, B<->8)
+        # Apply conservative OCR character substitutions (O<->0, I<->1, Z<->2, S<->5, B<->8, A<->4, G<->6)
         def soften(s: str) -> str:
-            return s.translate(str.maketrans('OIZSB01258', '0125801258'))
+            return s.translate(str.maketrans('OIZSBAG0125846', '01258460125846'))
 
         if soften(norm_vis) == soften(norm_mrz):
             return "PASS"
@@ -200,7 +216,7 @@ class ConsistencyService:
         pass_status = self.compare_passport_numbers(visual_fields.passport_number, mrz_dict.get("passport_number"))
         dob_status = self.compare_dates(visual_fields.date_of_birth, mrz_dict.get("date_of_birth"))
         exp_status = self.compare_dates(visual_fields.date_of_expiry, mrz_dict.get("date_of_expiry"))
-        gen_status = self.compare_genders(visual_fields.gender, mrz_dict.get("gender"))
+        gen_status = self.compare_genders(visual_fields.gender, mrz_dict.get("gender") or mrz_dict.get("sex"))
         nat_status = self.compare_nationalities(visual_fields.nationality, mrz_dict.get("nationality"))
 
         statuses = [name_status, pass_status, dob_status, exp_status, gen_status, nat_status]
