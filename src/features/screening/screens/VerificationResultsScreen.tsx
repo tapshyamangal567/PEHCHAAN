@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { ScreenContainer } from '../../../components/navigation/ScreenContainer';
 import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { SecondaryButton } from '../../../components/ui/SecondaryButton';
+import { NetworkStatusIndicator } from '../../../components/ui/NetworkStatusIndicator';
 import { DocumentValidationCard } from '../components/DocumentValidationCard';
 import { TamperingAnalysisCard } from '../components/TamperingAnalysisCard';
 import { FaceVerificationCard } from '../components/FaceVerificationCard';
@@ -29,6 +30,7 @@ import {
   UserCheck,
   Camera,
   AlertTriangle,
+  Layers,
 } from 'lucide-react-native';
 
 export const VerificationResultsScreen: React.FC = () => {
@@ -38,6 +40,8 @@ export const VerificationResultsScreen: React.FC = () => {
   const document: CapturedDocument | undefined = route.params?.document;
   const screeningResponse: (PassportScreeningResponse & { face_verification_result?: FaceMatchResult; updated_risk_score?: number; updated_risk_level?: string }) | undefined = route.params?.screeningResponse;
   const faceMatchResult: FaceMatchResult | undefined = route.params?.faceMatchResult || screeningResponse?.face_verification_result;
+  const isOfflineMode = Boolean(route.params?.isOfflineMode || (screeningResponse as any)?.is_offline_mode);
+  const localCaseId = route.params?.localCaseId || (screeningResponse as any)?.local_case_id;
 
   const [showRawOcr, setShowRawOcr] = useState<boolean>(false);
 
@@ -47,6 +51,10 @@ export const VerificationResultsScreen: React.FC = () => {
 
   const handleStartNewScreening = () => {
     navigation.navigate('PassportUpload');
+  };
+
+  const handleOpenOfflineQueue = () => {
+    navigation.navigate('OfflineSync');
   };
 
   const handleStartFaceVerification = () => {
@@ -67,8 +75,12 @@ export const VerificationResultsScreen: React.FC = () => {
   const isMrzDetected = Boolean(mrz?.detected);
 
   // Determine overall risk display
-  const currentRiskScore = faceMatchResult?.updated_risk_score ?? (faceMatchResult?.status === 'LOW_SIMILARITY' ? 72 : 8);
-  const currentRiskLevel = faceMatchResult?.updated_risk_level ?? (faceMatchResult?.status === 'LOW_SIMILARITY' ? 'HIGH' : 'LOW');
+  const currentRiskScore = isOfflineMode
+    ? 32
+    : (faceMatchResult?.updated_risk_score ?? (faceMatchResult?.status === 'LOW_SIMILARITY' ? 72 : 8));
+  const currentRiskLevel = isOfflineMode
+    ? 'MEDIUM (PRELIMINARY)'
+    : (faceMatchResult?.updated_risk_level ?? (faceMatchResult?.status === 'LOW_SIMILARITY' ? 'HIGH' : 'LOW'));
 
   const renderDataRow = (
     label: string,
@@ -82,12 +94,14 @@ export const VerificationResultsScreen: React.FC = () => {
         <View style={styles.fieldTextCol}>
           <Text style={styles.fieldLabel}>{label}</Text>
           <Text style={[styles.fieldValue, !isDetected && styles.notDetectedText]}>
-            {isDetected ? value : 'Not detected'}
+            {isDetected ? value : isOfflineMode ? 'Queued for Server OCR' : 'Not detected'}
           </Text>
         </View>
         {!isDetected ? (
           <View style={styles.notDetectedBadge}>
-            <Text style={styles.notDetectedBadgeLabel}>Not detected</Text>
+            <Text style={styles.notDetectedBadgeLabel}>
+              {isOfflineMode ? 'Pending Server' : 'Not detected'}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -107,16 +121,41 @@ export const VerificationResultsScreen: React.FC = () => {
           <ArrowLeft size={18} color={colors.primaryNavy} />
           <Text style={styles.backText}>Dashboard</Text>
         </TouchableOpacity>
+        <NetworkStatusIndicator />
       </View>
+
+      {/* Offline Mode Alert Banner */}
+      {isOfflineMode && (
+        <SlideUpView delay={50} style={styles.offlineBannerCard}>
+          <View style={styles.offlineBannerHeader}>
+            <Layers size={18} color="#D97706" />
+            <Text style={styles.offlineBannerTitle}>OFFLINE VERIFICATION MODE</Text>
+          </View>
+          <Text style={styles.offlineBannerText}>
+            Document captured and stored securely in local queue. Authoritative server verification will execute automatically once network is restored.
+          </Text>
+          {localCaseId && (
+            <View style={styles.localCasePill}>
+              <Text style={styles.localCasePillLabel}>Local Case ID: {localCaseId}</Text>
+            </View>
+          )}
+        </SlideUpView>
+      )}
 
       {/* Hero Header Card */}
       <SlideUpView delay={100} style={styles.heroCard}>
         <View style={styles.iconCircle}>
-          <CheckCircle2 size={36} color={colors.success} />
+          <CheckCircle2 size={36} color={isOfflineMode ? '#D97706' : colors.success} />
         </View>
 
-        <Text style={styles.titleText}>Passport Information</Text>
-        <Text style={styles.subtitleText}>Information extracted from the document</Text>
+        <Text style={styles.titleText}>
+          {isOfflineMode ? 'Offline Preliminary Assessment' : 'Passport Information'}
+        </Text>
+        <Text style={styles.subtitleText}>
+          {isOfflineMode
+            ? 'Document queued for server synchronization'
+            : 'Information extracted from the document'}
+        </Text>
 
         {/* Status Indicators Row */}
         <View style={styles.badgesRow}>
@@ -362,15 +401,23 @@ export const VerificationResultsScreen: React.FC = () => {
 
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
-        <PrimaryButton
-          title={
-            currentRiskLevel === 'HIGH' || currentRiskLevel === 'CRITICAL'
-              ? 'Escalate to Supervisor'
-              : 'Continue Review'
-          }
-          onPress={handleReturnDashboard}
-          accessibilityLabel="Officer Action Review Button"
-        />
+        {isOfflineMode ? (
+          <PrimaryButton
+            title="View Offline Queue"
+            onPress={handleOpenOfflineQueue}
+            accessibilityLabel="View Offline Queue"
+          />
+        ) : (
+          <PrimaryButton
+            title={
+              currentRiskLevel === 'HIGH' || currentRiskLevel === 'CRITICAL'
+                ? 'Escalate to Supervisor'
+                : 'Continue Review'
+            }
+            onPress={handleReturnDashboard}
+            accessibilityLabel="Officer Action Review Button"
+          />
+        )}
         <SecondaryButton
           title="Start New Screening"
           onPress={handleStartNewScreening}
@@ -391,6 +438,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxxl * 2,
   },
   headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
   backBtn: {
@@ -405,6 +455,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primaryNavy,
+  },
+  offlineBannerCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: radius.card,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    padding: 16,
+    marginBottom: 16,
+    ...shadows.soft,
+  },
+  offlineBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  offlineBannerTitle: {
+    fontFamily: typography.label.fontFamily,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  offlineBannerText: {
+    fontFamily: typography.body.fontFamily,
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  localCasePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  localCasePillLabel: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
   },
   heroCard: {
     backgroundColor: colors.surface,

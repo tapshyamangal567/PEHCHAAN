@@ -23,8 +23,9 @@ export type OfficerStackParamList = {
   PassportPreparation: { passportDoc?: SelectedPassportDocument };
   PassportPreview: { document?: CapturedDocument; passportDoc?: SelectedPassportDocument };
   DocumentAnalysis: { document?: CapturedDocument };
-  VerificationResults: { document?: CapturedDocument; screeningResponse?: PassportScreeningResponse; faceMatchResult?: any };
+  VerificationResults: { document?: CapturedDocument; screeningResponse?: PassportScreeningResponse; faceMatchResult?: any; isOfflineMode?: boolean; localCaseId?: string };
   IdentityVerification: { passportUri?: string; verificationId?: string; document?: CapturedDocument; currentScreeningResponse?: PassportScreeningResponse };
+  OfflineSync: undefined;
 };
 
 export type SupervisorTabParamList = {

@@ -84,6 +84,65 @@ async def create_verification(
 
 
 @router.post(
+    "/sync",
+    response_model=PassportScreeningResponse,
+    responses={
+        400: {"model": ErrorResponse},
+        500: {"model": ErrorResponse},
+    },
+    summary="Synchronize Offline Verification Case",
+    description="Securely upload offline captured case with local_case_id idempotency. Reprocesses document authoritatively and stores in PostgreSQL.",
+)
+async def sync_offline_verification(
+    request: Request,
+    file: UploadFile = File(...),
+    local_case_id: str = Form(..., description="Unique deterministic offline case ID for duplicate prevention"),
+    captured_at: Optional[str] = Form(None, description="ISO timestamp when case was captured locally"),
+    db: Session = Depends(get_db),
+    officer: User = Depends(require_role("OFFICER", "ADMIN")),
+):
+    try:
+        from datetime import datetime
+        parsed_captured_at = None
+        if captured_at:
+            try:
+                parsed_captured_at = datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
+            except Exception:
+                pass
+
+        result = await run_verification(
+            file=file,
+            officer=officer,
+            db=db,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            local_case_id=local_case_id,
+            is_offline_sync=True,
+            captured_at=parsed_captured_at,
+        )
+        return result
+    except ScreeningException as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                success=False,
+                error=ErrorDetail(code=exc.code, message=exc.message),
+            ).model_dump(),
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error=ErrorDetail(
+                    code="SYNC_FAILED",
+                    message=f"Offline synchronization failed: {str(e)}",
+                ),
+            ).model_dump(),
+        )
+
+
+@router.post(
     "/face-match",
     response_model=FaceMatchResultResponse,
     responses={

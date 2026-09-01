@@ -6,6 +6,7 @@ Uses transactions for multi-table writes.
 import uuid
 import time
 from typing import Optional
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from fastapi import UploadFile
@@ -29,6 +30,7 @@ from app.services.audit_service import create_audit_log
 
 from app.schemas.screening import (
     PassportScreeningResponse,
+    PassportFields,
     OCRResult,
     MRZResponseData,
     ConsistencyCheckResponse,
@@ -48,18 +50,60 @@ async def run_verification(
     db: Session,
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None,
+    local_case_id: Optional[str] = None,
+    is_offline_sync: bool = False,
+    captured_at: Optional[datetime] = None,
 ) -> PassportScreeningResponse:
     """
     Full verification workflow that reuses existing screening services and persists
-    results to PostgreSQL in a single transaction.
-
-    Flow:
-    1. Run existing OCR pipeline (same as /api/screening/passport)
-    2. Compute risk score from available data
-    3. Persist verification record + extracted fields + risk assessment + audit log
-    4. Commit transaction (rollback on any error)
-    5. Return PassportScreeningResponse with verification_id
+    results to PostgreSQL in a single transaction. Supports offline synchronization with
+    strict idempotency.
     """
+    # === IDEMPOTENCY CHECK ===
+    if local_case_id:
+        existing_record = db.query(VerificationRecord).filter(
+            VerificationRecord.local_case_id == local_case_id
+        ).first()
+
+        if existing_record:
+            # Build existing response without creating duplicate records
+            fields_obj = PassportFields(
+                full_name=existing_record.full_name,
+                passport_number=existing_record.document_number,
+                nationality=existing_record.nationality,
+                date_of_birth=existing_record.date_of_birth,
+                gender=existing_record.gender,
+                date_of_issue=existing_record.date_of_issue,
+                date_of_expiry=existing_record.date_of_expiry,
+            )
+            return PassportScreeningResponse(
+                success=True,
+                document_type=existing_record.document_type,
+                verification_id=existing_record.verification_id,
+                ocr=OCRResult(
+                    raw_text="",
+                    confidence=existing_record.ocr_confidence or 0.85,
+                ),
+                fields=fields_obj,
+                field_confidence={},
+                mrz=MRZResponseData(
+                    detected=existing_record.mrz_detected or False,
+                    line1=None,
+                    line2=None,
+                    checksum_valid=existing_record.mrz_checksum_valid,
+                ),
+                consistency=ConsistencyCheckResponse(
+                    name_match=existing_record.consistency_name_match,
+                    passport_number_match=existing_record.consistency_passport_match,
+                    dob_match=existing_record.consistency_dob_match,
+                    expiry_match=existing_record.consistency_expiry_match,
+                ),
+                metadata=ScreeningMetadata(
+                    processing_time_ms=existing_record.processing_time_ms or 0.0,
+                    fields_extracted=existing_record.fields_extracted or 7,
+                ),
+            )
+
     start_time = time.time()
     ver_id = generate_verification_id()
 
@@ -145,6 +189,10 @@ async def run_verification(
             verification_result=risk_result["verification_result"],
             processing_time_ms=processing_time_ms,
             fields_extracted=fields_extracted,
+            local_case_id=local_case_id,
+            is_offline_sync=is_offline_sync,
+            captured_at=captured_at,
+            synced_at=datetime.now(timezone.utc) if is_offline_sync else None,
         )
         db.add(verification)
         db.flush()  # Get verification.id without committing

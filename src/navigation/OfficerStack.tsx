@@ -9,6 +9,7 @@ import { PassportPreviewScreen } from '../features/screening/screens/PassportPre
 import { DocumentAnalysisScreen } from '../features/screening/screens/DocumentAnalysisScreen';
 import { VerificationResultsScreen } from '../features/screening/screens/VerificationResultsScreen';
 import { IdentityVerificationScreen } from '../features/screening/screens/IdentityVerificationScreen';
+import { OfflineSyncScreen } from '../features/screening/screens/OfflineSyncScreen';
 
 const Stack = createNativeStackNavigator<OfficerStackParamList>();
 
@@ -29,6 +30,7 @@ export const OfficerStack = () => {
       <Stack.Screen name="DocumentAnalysis" component={DocumentAnalysisScreen} />
       <Stack.Screen name="VerificationResults" component={VerificationResultsScreen} />
       <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} />
+      <Stack.Screen name="OfflineSync" component={OfflineSyncScreen} />
     </Stack.Navigator>
   );
 };

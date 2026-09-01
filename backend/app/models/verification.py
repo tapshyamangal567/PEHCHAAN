@@ -62,9 +62,13 @@ class VerificationRecord(Base):
     risk_level = Column(SAEnum(RiskLevel), nullable=True, index=True)
     verification_result = Column(String(50), nullable=True)  # PASS / REVIEW / FAIL
 
-    # Processing
+    # Processing & Offline Sync Metadata
     processing_time_ms = Column(Float, nullable=True)
     fields_extracted = Column(Integer, nullable=True)
+    local_case_id = Column(String(100), nullable=True, unique=True, index=True)
+    is_offline_sync = Column(Boolean, default=False, nullable=True)
+    captured_at = Column(DateTime(timezone=True), nullable=True)
+    synced_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
