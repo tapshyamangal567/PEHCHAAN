@@ -216,7 +216,7 @@ class FaceVerificationService:
         # 4. Handle Detection Failures
         if not passport_face_detected:
             msg = "Passport face could not be reliably detected."
-            logger.info(f"Face verification: passport_face_detected=False, live_face_detected={num_live_faces == 1}, liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=REVIEW")
+            logger.info(f"Face verification: passport_face_detected=False, live_face_detected={num_live_faces == 1}, liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=PASSPORT_FACE_NOT_FOUND")
             return {
                 "success": True,
                 "face_verification": {
@@ -231,7 +231,7 @@ class FaceVerificationService:
                     "threshold": match_threshold,
                     "match_threshold": match_threshold,
                     "review_threshold": review_threshold,
-                    "status": "REVIEW",
+                    "status": "PASSPORT_FACE_NOT_FOUND",
                     "reason": msg,
                     "message": msg,
                     "passport_face": {"detected": False},
@@ -243,7 +243,7 @@ class FaceVerificationService:
 
         if num_live_faces > 1:
             msg = "Multiple faces detected. Please ensure only the candidate is visible."
-            logger.info(f"Face verification: passport_face_detected=True, live_face_detected=False (multiple), liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=REVIEW")
+            logger.info(f"Face verification: passport_face_detected=True, live_face_detected=False (multiple), liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=MULTIPLE_FACES")
             return {
                 "success": True,
                 "face_verification": {
@@ -258,7 +258,7 @@ class FaceVerificationService:
                     "threshold": match_threshold,
                     "match_threshold": match_threshold,
                     "review_threshold": review_threshold,
-                    "status": "REVIEW",
+                    "status": "MULTIPLE_FACES",
                     "reason": msg,
                     "message": msg,
                     "passport_face": {"detected": True},
@@ -270,7 +270,7 @@ class FaceVerificationService:
 
         if num_live_faces == 0 or live_face is None:
             msg = "Live face could not be reliably detected."
-            logger.info(f"Face verification: passport_face_detected=True, live_face_detected=False, liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=REVIEW")
+            logger.info(f"Face verification: passport_face_detected=True, live_face_detected=False, liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=LIVE_FACE_NOT_FOUND")
             return {
                 "success": True,
                 "face_verification": {
@@ -285,7 +285,7 @@ class FaceVerificationService:
                     "threshold": match_threshold,
                     "match_threshold": match_threshold,
                     "review_threshold": review_threshold,
-                    "status": "REVIEW",
+                    "status": "LIVE_FACE_NOT_FOUND",
                     "reason": msg,
                     "message": msg,
                     "passport_face": {"detected": True},
@@ -302,7 +302,7 @@ class FaceVerificationService:
 
         if not quality_ok:
             msg = "Face image quality is insufficient for reliable comparison."
-            logger.info(f"Face verification: passport_face_detected=True, live_face_detected=True, liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=REVIEW")
+            logger.info(f"Face verification: passport_face_detected=True, live_face_detected=True, liveness={liveness_status}, comparison_available=False, similarity=0.0, threshold={match_threshold}, face_status=IMAGE_QUALITY_INSUFFICIENT")
             return {
                 "success": True,
                 "face_verification": {
@@ -317,7 +317,7 @@ class FaceVerificationService:
                     "threshold": match_threshold,
                     "match_threshold": match_threshold,
                     "review_threshold": review_threshold,
-                    "status": "REVIEW",
+                    "status": "IMAGE_QUALITY_INSUFFICIENT",
                     "reason": msg,
                     "message": msg,
                     "passport_face": {"detected": True},
@@ -363,32 +363,32 @@ class FaceVerificationService:
 
         # 7. Evaluate Similarity Score against Configurable Thresholds
         if similarity >= match_threshold:
-            sim_status = "PASS"
+            sim_status = "MATCH"
         elif similarity >= review_threshold:
             sim_status = "REVIEW"
         else:
-            sim_status = "FAIL"
+            sim_status = "MISMATCH"
 
         # 8. Combine Similarity & Liveness Dependency Rules
         if liveness_passed:
-            if sim_status == "PASS":
-                final_status = "PASS"
+            if sim_status == "MATCH":
+                final_status = "MATCH"
                 reason = "Passport and live face similarity passed the configured threshold."
             elif sim_status == "REVIEW":
                 final_status = "REVIEW"
                 reason = "Face similarity is inconclusive. Manual verification recommended."
             else:
-                final_status = "FAIL"
+                final_status = "MISMATCH"
                 reason = "Passport and live face do not meet the configured similarity threshold."
         else:
-            if sim_status == "PASS":
+            if sim_status == "MATCH":
                 final_status = "REVIEW"
                 reason = "Face similarity passed, but liveness verification was not verified."
             elif sim_status == "REVIEW":
                 final_status = "REVIEW"
                 reason = "Face similarity is inconclusive and liveness was not verified."
             else:
-                final_status = "FAIL"
+                final_status = "MISMATCH"
                 reason = "Passport and live face do not match and liveness failed."
 
         # Safe Debug Logging (Zero PII / raw embeddings logged)

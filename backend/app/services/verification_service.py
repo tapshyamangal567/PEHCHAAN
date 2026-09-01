@@ -27,6 +27,7 @@ from app.services.combination_service import combination_service
 from app.services.consistency_service import consistency_service
 from app.services.risk_service import compute_risk_score
 from app.services.audit_service import create_audit_log
+from app.blockchain.service import blockchain_service
 
 from app.schemas.screening import (
     PassportScreeningResponse,
@@ -35,6 +36,7 @@ from app.schemas.screening import (
     MRZResponseData,
     ConsistencyCheckResponse,
     ScreeningMetadata,
+    BlockchainAnchorData,
 )
 
 
@@ -241,7 +243,41 @@ async def run_verification(
         db.rollback()
         raise
 
-    # === STEP 4: Return response ===
+    # === STEP 4: Blockchain Anchoring (Polygon Amoy Testnet) ===
+    # Asynchronous immutable audit proof. Failures do NOT block verification!
+    blockchain_data = None
+    try:
+        bc_res = blockchain_service.prepare_and_anchor(
+            db=db,
+            verification_id=ver_id,
+            raw_image_bytes=file_bytes,
+        )
+        if bc_res and bc_res.get("success"):
+            blockchain_data = BlockchainAnchorData(
+                status=bc_res.get("status", "CONFIRMED"),
+                network=bc_res.get("network", "polygon-amoy"),
+                case_hash=bc_res.get("case_hash"),
+                document_hash=bc_res.get("document_hash"),
+                result_hash=bc_res.get("result_hash"),
+                transaction_hash=bc_res.get("tx_hash"),
+                block_number=bc_res.get("block_number"),
+                anchored_at=bc_res.get("anchored_at"),
+                explorer_url=bc_res.get("explorer_url"),
+            )
+        elif bc_res:
+            blockchain_data = BlockchainAnchorData(
+                status=bc_res.get("status", "FAILED"),
+                network=bc_res.get("network", "polygon-amoy"),
+                case_hash=bc_res.get("case_hash"),
+                document_hash=bc_res.get("document_hash"),
+                result_hash=bc_res.get("result_hash"),
+                transaction_hash=bc_res.get("tx_hash"),
+            )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+    # === STEP 5: Return response ===
     return PassportScreeningResponse(
         success=True,
         document_type="passport",
@@ -251,6 +287,7 @@ async def run_verification(
         field_confidence=field_confidence,
         mrz=mrz_response_data,
         consistency=consistency_response,
+        blockchain=blockchain_data,
         metadata=ScreeningMetadata(
             processing_time_ms=processing_time_ms,
             fields_extracted=fields_extracted,

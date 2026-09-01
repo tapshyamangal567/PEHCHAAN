@@ -4,6 +4,7 @@ All routes require SUPERVISOR or ADMIN role.
 """
 import math
 from datetime import datetime, timezone, timedelta
+from typing import List, Optional, Dict
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
@@ -134,7 +135,7 @@ def search_verifications(
 
 @router.get(
     "/officers",
-    response_model=list[OfficerActivity],
+    response_model=List[OfficerActivity],
     summary="Officer Activity Summary",
 )
 def get_officer_activity(
@@ -172,7 +173,7 @@ def get_officer_activity(
 
 @router.get(
     "/recent",
-    response_model=list[RecentVerification],
+    response_model=List[RecentVerification],
     summary="Recent Verification Activity",
 )
 def get_recent_verifications(
@@ -202,7 +203,7 @@ def get_recent_verifications(
 
 @router.get(
     "/audit-logs",
-    response_model=list[AuditLogResponse],
+    response_model=List[AuditLogResponse],
     summary="System Audit Logs",
 )
 def get_audit_logs(

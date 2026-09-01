@@ -70,6 +70,18 @@ class VerificationRecord(Base):
     captured_at = Column(DateTime(timezone=True), nullable=True)
     synced_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Blockchain Audit & Integrity Layer (Polygon Amoy)
+    blockchain_status = Column(String(50), nullable=True, default="PENDING", index=True)  # PENDING / QUEUED / CONFIRMED / FAILED / NOT_REQUESTED
+    blockchain_network = Column(String(50), nullable=True, default="polygon-amoy")
+    case_hash = Column(String(66), nullable=True, index=True)
+    document_hash = Column(String(66), nullable=True)
+    result_hash = Column(String(66), nullable=True)
+    blockchain_tx_hash = Column(String(66), nullable=True, index=True)
+    blockchain_block_number = Column(Integer, nullable=True)
+    blockchain_timestamp = Column(DateTime(timezone=True), nullable=True)
+    blockchain_error = Column(String(500), nullable=True)
+    blockchain_anchored_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
     # Relationships

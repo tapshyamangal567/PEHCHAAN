@@ -88,6 +88,17 @@ class TamperingAnalysisResult(BaseModel):
     method: str = Field(default="OpenCV Forensic Baseline — image-level screening")
     model_version: str = Field(default="baseline-1.0")
 
+class BlockchainAnchorData(BaseModel):
+    status: str = Field(default="PENDING", description="PENDING, QUEUED, CONFIRMED, FAILED, or NOT_REQUESTED")
+    network: str = Field(default="polygon-amoy", description="Blockchain network")
+    case_hash: Optional[str] = None
+    document_hash: Optional[str] = None
+    result_hash: Optional[str] = None
+    transaction_hash: Optional[str] = None
+    block_number: Optional[int] = None
+    anchored_at: Optional[str] = None
+    explorer_url: Optional[str] = None
+
 class PassportScreeningResponse(BaseModel):
     success: bool = True
     document_type: str = "passport"
@@ -100,6 +111,7 @@ class PassportScreeningResponse(BaseModel):
     validation: Optional[ValidationResult] = None
     tampering_analysis: Optional[TamperingAnalysisResult] = None
     image_quality: Optional[Dict[str, Any]] = Field(default=None, description="Image quality analysis metrics")
+    blockchain: Optional[BlockchainAnchorData] = None
     metadata: ScreeningMetadata
 
 class ErrorDetail(BaseModel):

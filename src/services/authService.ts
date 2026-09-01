@@ -1,4 +1,5 @@
 import apiClient from './api/apiClient';
+import { API_BASE_URL } from '../config/api';
 import { UserProfile, UserRole } from '../types/auth';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -167,7 +168,7 @@ export class AuthService {
   }
 
   /**
-   * Formats register error into exact user-facing messages
+   * Formats register error into informative messages
    */
   private static formatRegisterError(error: any): Error {
     if (!error) {
@@ -183,37 +184,77 @@ export class AuthService {
         return new Error('An account with these details already exists.');
       }
       if (status === 400 || status === 422) {
-        if (typeof detail === 'string') return new Error(detail);
-        if (Array.isArray(detail) && detail[0]?.msg) return new Error(detail[0].msg);
-        return new Error('Please check your entered details.');
+        let msg = 'Please check your entered details.';
+        if (typeof detail === 'string') {
+          msg = detail;
+        } else if (Array.isArray(detail)) {
+          msg = detail.map((d: any) => `${d.loc?.slice(-1)[0] || 'field'}: ${d.msg}`).join(', ');
+        }
+        return new Error(
+          __DEV__ ? `Validation Error (HTTP ${status}): ${msg}` : typeof detail === 'string' ? detail : 'Please check your entered details.'
+        );
       }
       if (status === 401 || status === 403) {
-        return new Error('Registration is not authorized.');
+        return new Error(typeof detail === 'string' ? detail : 'Registration is not authorized.');
+      }
+      if (status === 404) {
+        return new Error(
+          __DEV__
+            ? `Registration endpoint not found (HTTP 404): ${error.config?.url || '/api/auth/register'}`
+            : 'Registration service endpoint not found (HTTP 404).'
+        );
       }
       if (status >= 500) {
-        return new Error('Something went wrong on the server. Please try again.');
+        const errorDetail = typeof detail === 'string' ? ` (${detail})` : '';
+        return new Error(
+          __DEV__
+            ? `Server Error (HTTP ${status})${errorDetail}`
+            : 'Something went wrong on the server. Please try again.'
+        );
+      }
+      if (typeof detail === 'string') {
+        return new Error(detail);
       }
     }
 
-    // Network / timeout
+    // Exactly one timeout branch
     if (
       error.code === 'ECONNABORTED' ||
-      error.code === 'ERR_NETWORK' ||
-      error.message?.includes('timeout') ||
-      error.message?.includes('Network Error')
+      error.message?.toLowerCase().includes('timeout')
     ) {
-      return new Error('Unable to connect to PEHCHAAN server. Please check your connection and try again.');
+      return new Error(
+        __DEV__
+          ? `Connection timeout: Server at ${API_BASE_URL} took too long to respond.`
+          : 'Connection timed out. Please check your connection and try again.'
+      );
     }
 
+    // Exactly one network error branch
+    if (
+      error.code === 'ERR_NETWORK' ||
+      error.message?.includes('Network Error') ||
+      !error.response
+    ) {
+      if (__DEV__) {
+        console.warn(`[AUTH] Network connection failed to ${API_BASE_URL}. Ensure backend is running on port 8001.`);
+      }
+      return new Error(
+        __DEV__
+          ? `Network error: Cannot reach backend at ${API_BASE_URL}. Check LAN IP/port configuration.`
+          : 'Unable to connect to PEHCHAAN server. Please check your connection and try again.'
+      );
+    }
+
+    // Fallback for unknown errors
     return new Error(error.message || 'Unable to connect to PEHCHAAN server. Please check your connection and try again.');
   }
 
   /**
-   * Formats login error into exact user-facing messages
+   * Formats login error into informative messages
    */
   private static formatLoginError(error: any): Error {
     if (!error) {
-      return new Error('Unable to connect to the server. Please try again.');
+      return new Error('Unable to connect to PEHCHAAN server. Please check your network connection.');
     }
 
     if (error.response) {
@@ -221,30 +262,71 @@ export class AuthService {
       const detail = error.response.data?.detail;
 
       if (status === 401) {
-        return new Error('Invalid User ID or password.');
+        return new Error(typeof detail === 'string' ? detail : 'Invalid Official ID or password.');
       }
       if (status === 403) {
         if (typeof detail === 'string') return new Error(detail);
-        return new Error('Invalid User ID or password.');
+        return new Error('Access denied. You do not have permission to access this role.');
+      }
+      if (status === 404) {
+        return new Error(
+          __DEV__
+            ? `Authentication endpoint not found (HTTP 404): ${error.config?.url || '/api/auth/login'}`
+            : 'Authentication service endpoint not found (HTTP 404).'
+        );
+      }
+      if (status === 422) {
+        let msg = 'Invalid login request format.';
+        if (typeof detail === 'string') {
+          msg = detail;
+        } else if (Array.isArray(detail)) {
+          msg = detail.map((d: any) => `${d.loc?.slice(-1)[0] || 'field'}: ${d.msg}`).join(', ');
+        }
+        return new Error(__DEV__ ? `Validation Error (HTTP 422): ${msg}` : 'Please enter valid login credentials.');
       }
       if (status >= 500) {
-        return new Error('Unable to connect to the server. Please try again.');
+        const errorDetail = typeof detail === 'string' ? ` (${detail})` : '';
+        return new Error(
+          __DEV__
+            ? `Server Error (HTTP ${status})${errorDetail}`
+            : 'PEHCHAAN server encountered an internal error. Please try again.'
+        );
       }
       if (typeof detail === 'string') {
         return new Error(detail);
       }
     }
 
+    // Exactly one timeout branch
     if (
       error.code === 'ECONNABORTED' ||
-      error.code === 'ERR_NETWORK' ||
-      error.message?.includes('timeout') ||
-      error.message?.includes('Network Error')
+      error.message?.toLowerCase().includes('timeout')
     ) {
-      return new Error('Unable to connect to the server. Please try again.');
+      return new Error(
+        __DEV__
+          ? `Connection timeout: Server at ${API_BASE_URL} took too long to respond.`
+          : 'Connection timed out. Please verify the backend server is responsive and try again.'
+      );
     }
 
-    return new Error(error.message || 'Unable to connect to the server. Please try again.');
+    // Exactly one network error branch
+    if (
+      error.code === 'ERR_NETWORK' ||
+      error.message?.includes('Network Error') ||
+      !error.response
+    ) {
+      if (__DEV__) {
+        console.warn(`[AUTH] Network connection failed to ${API_BASE_URL}. Ensure backend is running on port 8001.`);
+      }
+      return new Error(
+        __DEV__
+          ? `Network error: Cannot reach backend at ${API_BASE_URL}. Check LAN IP/port configuration.`
+          : 'Cannot connect to server. Please verify network connectivity and ensure the backend server is reachable.'
+      );
+    }
+
+    // Fallback for unknown errors
+    return new Error(error.message || 'Unable to connect to PEHCHAAN server. Please try again.');
   }
 }
 
