@@ -1,4 +1,4 @@
-import { RiskLevel } from '../../../types/common';
+import { RiskLevel, SystemStatus } from '../../../types/common';
 
 export interface SupervisorReviewCase {
   id: string;
@@ -23,6 +23,7 @@ export interface ActiveOfficerItem {
   name: string;
   badgeId: string;
   screeningsToday: number;
+  totalVerifications?: number;
   status: 'ACTIVE' | 'INACTIVE';
   lastActive: string;
 }

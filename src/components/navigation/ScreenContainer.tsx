@@ -31,11 +31,10 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
 }) => {
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {scrollable ? (
           <ScrollView
@@ -45,10 +44,12 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
             keyboardShouldPersistTaps={keyboardShouldPersistTaps}
             refreshControl={refreshControl}
           >
-            {children}
+            <View style={styles.maxWidthWrapper}>{children}</View>
           </ScrollView>
         ) : (
-          <View style={[styles.mainContent, contentContainerStyle]}>{children}</View>
+          <View style={[styles.mainContent, contentContainerStyle]}>
+            <View style={styles.maxWidthWrapper}>{children}</View>
+          </View>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -58,7 +59,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
   },
   keyboardAvoid: {
     flex: 1,
@@ -67,14 +68,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     flexGrow: 1,
   },
   mainContent: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  maxWidthWrapper: {
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
 });
 

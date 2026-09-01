@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { PrimaryButton } from '../../../components/ui/PrimaryButton';
 import { AlertItemCard } from '../components/AlertItemCard';
 import { CaseRowItem } from '../components/CaseRowItem';
 import { CaseDetailModal } from '../components/CaseDetailModal';
+import { SupervisorMetricCard } from '../../supervisor/components/SupervisorMetricCard';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useSyncStore } from '../../../services/offline/syncService';
@@ -41,6 +42,7 @@ import {
   AlertCircle,
   Inbox,
   RefreshCw,
+  FileCheck2,
 } from 'lucide-react-native';
 
 export const OfficerDashboardScreen = () => {
@@ -119,33 +121,31 @@ export const OfficerDashboardScreen = () => {
         />
       }
     >
-      {/* Background Soft Blue Glow Effect behind Hero */}
-      <View style={styles.ambientBlueGlow} />
-
-      {/* 1. Header with AppLogo, Officer Info & Interactive Network Indicator */}
+      {/* 1. Header Row (Non-overlapping Flex Layout) */}
       <FadeInView delay={100} style={styles.headerRow}>
         <View style={styles.brandingBox}>
-          <AppLogo size="sm" showTagline={false} align="flex-start" />
+          <AppLogo size="sm" variant="horizontal" showTagline={false} />
           <View style={styles.headerTitleBox}>
-            <Text style={typography.h2}>
-              Good Day, {user?.name?.split(' ')[0] || user?.username || 'Officer'}
+            <Text style={styles.greetingText}>
+              Duty Officer: <Text style={styles.officerNameText}>{user?.name || user?.username || 'Officer'}</Text>
             </Text>
-            <View style={styles.locationRow}>
-              <Text style={typography.caption}>
-                {user?.checkpoint || 'Checkpoint Alpha'} • {user?.badgeId || user?.username || 'IND-SEC'}
-              </Text>
-              <NetworkStatusIndicator />
-            </View>
+            <Text style={styles.checkpointSubtext}>
+              {user?.checkpoint || 'Checkpoint Alpha'} • Badge: {user?.badgeId || user?.username || 'IND-SEC'}
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Profile')}
-          accessibilityRole="button"
-          accessibilityLabel="View Profile"
-        >
-          <Avatar name={user?.name || user?.username || 'Officer'} size={44} showOnlineStatus />
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <NetworkStatusIndicator />
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            accessibilityRole="button"
+            accessibilityLabel="View Officer Profile"
+            style={styles.avatarWrapper}
+          >
+            <Avatar name={user?.name || user?.username || 'Officer'} size={40} showOnlineStatus />
+          </TouchableOpacity>
+        </View>
       </FadeInView>
 
       {/* Error state */}
@@ -160,7 +160,7 @@ export const OfficerDashboardScreen = () => {
         </SlideUpView>
       )}
 
-      {/* Offline Pending Banner */}
+      {/* Offline Pending Sync Banner */}
       {stats.pending > 0 && (
         <SlideUpView delay={120}>
           <TouchableOpacity
@@ -175,7 +175,7 @@ export const OfficerDashboardScreen = () => {
                   {stats.pending} Offline {stats.pending === 1 ? 'Case' : 'Cases'} Pending Sync
                 </Text>
                 <Text style={styles.pendingSyncSub}>
-                  Tap to view offline queue and synchronize with server
+                  Tap to view offline queue and synchronize with PostgreSQL
                 </Text>
               </View>
             </View>
@@ -184,55 +184,8 @@ export const OfficerDashboardScreen = () => {
         </SlideUpView>
       )}
 
-      {/* 2. Today's Screening Metrics */}
-      <SlideUpView delay={150} style={styles.metricsSection}>
-        <SectionHeader title="Today's Activity" />
-
-        <View style={styles.metricsGrid}>
-          {/* Card 1: Screened */}
-          <StaggeredEntrance index={0} style={styles.metricCardWrapper}>
-            <View style={[styles.metricCard, styles.metricCardScreened]}>
-              <Text style={styles.metricLabel}>SCREENED</Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.primaryNavy} style={styles.loader} />
-              ) : (
-                <Text style={typography.metricValue}>{summary.screenedToday}</Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-
-          {/* Card 2: Cleared */}
-          <StaggeredEntrance index={1} style={styles.metricCardWrapper}>
-            <View style={[styles.metricCard, styles.metricCardCleared]}>
-              <Text style={[styles.metricLabel, { color: colors.success }]}>CLEARED</Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.success} style={styles.loader} />
-              ) : (
-                <Text style={[typography.metricValue, { color: colors.success }]}>
-                  {summary.clearedToday}
-                </Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-
-          {/* Card 3: Flagged */}
-          <StaggeredEntrance index={2} style={styles.metricCardWrapper}>
-            <View style={[styles.metricCard, styles.metricCardFlagged]}>
-              <Text style={[styles.metricLabel, { color: colors.danger }]}>FLAGGED</Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.danger} style={styles.loader} />
-              ) : (
-                <Text style={[typography.metricValue, { color: colors.danger }]}>
-                  {summary.flaggedToday}
-                </Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-        </View>
-      </SlideUpView>
-
-      {/* 3. HERO ACTION CARD: "START NEW SCREENING" */}
-      <SlideUpView delay={250} style={styles.heroSection}>
+      {/* 2. PRIMARY OPERATIONAL HERO CARD: "START NEW SCREENING" */}
+      <SlideUpView delay={150} style={styles.heroSection}>
         <ScalePressable
           onPress={handleStartScreening}
           activeScale={0.98}
@@ -244,31 +197,79 @@ export const OfficerDashboardScreen = () => {
 
           <View style={styles.heroHeader}>
             <View style={styles.heroIconBox}>
-              <ScanLine size={24} color={colors.white} />
+              <ScanLine size={24} color="#FFFFFF" />
             </View>
             <View style={styles.heroArrowBox}>
-              <ArrowRight size={18} color={colors.white} />
+              <ArrowRight size={18} color="#FFFFFF" />
             </View>
           </View>
 
-          <Text style={styles.heroTitle}>START NEW SCREENING</Text>
+          <Text style={styles.heroPreTitle}>PRIMARY FIELD OPERATION</Text>
+          <Text style={styles.heroTitle}>New Document Verification</Text>
           <Text style={styles.heroSubtitle}>
-            Scan official passport or identity document for instant AI verification
+            Scan passport or travel document for instant OCR, MRZ validation, and risk assessment
           </Text>
 
           <View style={styles.heroCtaWrapper}>
             <PrimaryButton
               title="Launch Scanner"
               onPress={handleStartScreening}
-              icon={<Camera size={18} color={colors.white} />}
+              icon={<Camera size={18} color="#FFFFFF" />}
               style={styles.heroButtonOverride}
             />
           </View>
         </ScalePressable>
       </SlideUpView>
 
+      {/* 3. Today's Operational Metrics */}
+      <SlideUpView delay={200} style={styles.metricsSection}>
+        <SectionHeader title="Today's Verification Activity" />
+
+        <View style={styles.metricsGrid}>
+          {/* Card 1: Screened */}
+          <StaggeredEntrance index={0} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="SCREENED TODAY"
+              value={summary.screenedToday}
+              loading={loading}
+              variant="default"
+            />
+          </StaggeredEntrance>
+
+          {/* Card 2: Cleared */}
+          <StaggeredEntrance index={1} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="CLEARED"
+              value={summary.clearedToday}
+              loading={loading}
+              variant="success"
+            />
+          </StaggeredEntrance>
+
+          {/* Card 3: Flagged */}
+          <StaggeredEntrance index={2} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="FLAGGED"
+              value={summary.flaggedToday}
+              loading={loading}
+              variant="danger"
+            />
+          </StaggeredEntrance>
+
+          {/* Card 4: Under Review */}
+          <StaggeredEntrance index={3} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="UNDER REVIEW"
+              value={summary.underReviewToday}
+              loading={loading}
+              variant="warning"
+            />
+          </StaggeredEntrance>
+        </View>
+      </SlideUpView>
+
       {/* 4. Secondary Quick Action */}
-      <SlideUpView delay={300} style={styles.secondaryActionSection}>
+      <SlideUpView delay={250} style={styles.secondaryActionSection}>
         <ScalePressable
           onPress={() => setShowIdentityModal(true)}
           activeScale={0.98}
@@ -282,10 +283,10 @@ export const OfficerDashboardScreen = () => {
             </View>
             <View style={styles.secondaryTextColumn}>
               <Text style={[typography.bodyMedium, styles.secondaryTitle]}>
-                Biometric Identity Match
+                Biometric Facial Verification
               </Text>
               <Text style={typography.caption}>
-                Perform facial verification against document portrait
+                Perform live camera match against passport portrait photo
               </Text>
             </View>
             <ChevronRight size={18} color={colors.mutedText} />
@@ -293,8 +294,8 @@ export const OfficerDashboardScreen = () => {
         </ScalePressable>
       </SlideUpView>
 
-      {/* 5. Pending Alerts */}
-      <SlideUpView delay={350} style={styles.section}>
+      {/* 5. Security Alerts */}
+      <SlideUpView delay={300} style={styles.section}>
         <SectionHeader
           title="Security Alerts"
           rightAction={
@@ -325,9 +326,9 @@ export const OfficerDashboardScreen = () => {
       </SlideUpView>
 
       {/* 6. Recent Cases */}
-      <SlideUpView delay={400} style={styles.section}>
+      <SlideUpView delay={350} style={styles.section}>
         <SectionHeader
-          title="Recent Cases"
+          title="Recent Activity"
           rightAction={
             <TouchableOpacity onPress={() => navigation.navigate('Cases')}>
               <Text style={styles.viewAllText}>See all</Text>
@@ -353,7 +354,7 @@ export const OfficerDashboardScreen = () => {
       </SlideUpView>
 
       {/* 7. Footer Indicator */}
-      <FadeInView delay={450} style={styles.systemStatusFooter}>
+      <FadeInView delay={400} style={styles.systemStatusFooter}>
         <Shield size={14} color={colors.mutedText} />
         <Text style={styles.systemStatusText}>
           PEHCHAAN Security Engine • PostgreSQL Connected
@@ -393,40 +394,51 @@ export const OfficerDashboardScreen = () => {
 
 const styles = StyleSheet.create({
   screenBg: {
-    backgroundColor: colors.warmBackground,
+    backgroundColor: '#F8FAFC',
   },
   container: {
     paddingBottom: spacing.xxxl * 2,
-    position: 'relative',
-  },
-  ambientBlueGlow: {
-    position: 'absolute',
-    top: 60,
-    left: '10%',
-    right: '10%',
-    height: 180,
-    backgroundColor: 'rgba(29, 91, 142, 0.08)',
-    borderRadius: 100,
-    zIndex: -1,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xs,
     marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   brandingBox: {
     flex: 1,
+    gap: 4,
   },
   headerTitleBox: {
-    marginTop: spacing.sm,
+    marginTop: 2,
   },
-  locationRow: {
+  greetingText: {
+    fontFamily: typography.bodyMedium.fontFamily,
+    fontSize: 13,
+    color: '#64748B',
+  },
+  officerNameText: {
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  checkpointSubtext: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  headerRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: 4,
+  },
+  avatarWrapper: {
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   pendingSyncCard: {
     backgroundColor: '#FEF3C7',
@@ -437,7 +449,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     ...shadows.soft,
   },
   pendingSyncLeft: {
@@ -488,48 +500,21 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   metricsSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   metricsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  metricCardWrapper: {
-    flex: 1,
-  },
-  metricCard: {
-    borderRadius: radius.card,
-    borderWidth: 1,
-    padding: spacing.md,
-    ...shadows.soft,
-  },
-  metricCardScreened: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  metricCardCleared: {
-    backgroundColor: colors.successBg,
-    borderColor: 'rgba(18, 183, 106, 0.25)',
-  },
-  metricCardFlagged: {
-    backgroundColor: colors.dangerBg,
-    borderColor: 'rgba(180, 35, 24, 0.25)',
-  },
-  metricLabel: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 10,
-    color: colors.mutedText,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  loader: {
-    marginVertical: 4,
+  metricWrapper: {
+    width: '48%',
   },
   sectionLoader: {
     marginVertical: spacing.md,
   },
   heroSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   heroCard: {
     backgroundColor: colors.primaryNavy,
@@ -554,7 +539,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   heroIconBox: {
     width: 44,
@@ -572,30 +557,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroTitle: {
+  heroPreTitle: {
     fontFamily: typography.label.fontFamily,
-    fontSize: 11,
+    fontSize: 10,
     color: 'rgba(255, 255, 255, 0.75)',
     letterSpacing: 1,
     marginBottom: 4,
+    fontWeight: '700',
+  },
+  heroTitle: {
+    fontFamily: typography.h2.fontFamily,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   heroSubtitle: {
-    fontFamily: typography.h3.fontFamily,
-    fontSize: 18,
-    color: colors.white,
-    lineHeight: 24,
+    fontFamily: typography.body.fontFamily,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 18,
     marginBottom: spacing.lg,
-    maxWidth: '85%',
+    maxWidth: '90%',
   },
   heroCtaWrapper: {
     marginTop: spacing.xs,
   },
   heroButtonOverride: {
-    backgroundColor: colors.primaryRose,
-    borderColor: colors.primaryRose,
+    backgroundColor: '#1E4E79',
+    borderColor: '#2B6CB0',
   },
   secondaryActionSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   secondaryCard: {
     backgroundColor: colors.surface,
@@ -624,9 +617,10 @@ const styles = StyleSheet.create({
   secondaryTitle: {
     color: colors.primaryText,
     marginBottom: 2,
+    fontWeight: '700',
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   viewAllText: {
     fontFamily: typography.caption.fontFamily,

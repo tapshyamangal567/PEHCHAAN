@@ -22,6 +22,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
           text: colors.success,
           label: status,
         };
+      case 'INACTIVE':
+        return {
+          bg: colors.surfaceSubtle,
+          border: colors.border,
+          text: colors.mutedText,
+          label: 'INACTIVE',
+        };
       case 'PENDING':
         return {
           bg: colors.warningBg,

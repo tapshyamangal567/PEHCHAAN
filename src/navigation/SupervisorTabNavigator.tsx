@@ -1,14 +1,20 @@
 import React from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SupervisorTabParamList } from './types';
 import { SupervisorDashboardScreen } from '../features/supervisor/screens/SupervisorDashboardScreen';
 import { ReviewQueueScreen } from '../features/supervisor/screens/ReviewQueueScreen';
-import { AnalyticsPlaceholderScreen } from '../features/supervisor/screens/AnalyticsPlaceholderScreen';
 import { SupervisorAlertsScreen } from '../features/supervisor/screens/SupervisorAlertsScreen';
-import { SupervisorProfileScreen } from '../features/supervisor/screens/SupervisorProfileScreen';
+import { OfficerActivityScreen } from '../features/supervisor/screens/OfficerActivityScreen';
+import { SupervisorCasesScreen } from '../features/supervisor/screens/SupervisorCasesScreen';
 import { colors, typography, shadows } from '../theme';
-import { LayoutDashboard, ClipboardList, BarChart3, Bell, User } from 'lucide-react-native';
+import {
+  LayoutGrid,
+  ClipboardList,
+  Bell,
+  Users,
+  FileText,
+} from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator<SupervisorTabParamList>();
 
@@ -17,8 +23,8 @@ export const SupervisorTabNavigator = () => {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primaryNavy,
-        tabBarInactiveTintColor: colors.secondaryText,
+        tabBarActiveTintColor: '#1D4ED8',
+        tabBarInactiveTintColor: '#64748B',
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
@@ -30,7 +36,10 @@ export const SupervisorTabNavigator = () => {
         options={{
           tabBarLabel: 'Overview',
           tabBarIcon: ({ color, size, focused }) => (
-            <LayoutDashboard size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <LayoutGrid size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -40,45 +49,57 @@ export const SupervisorTabNavigator = () => {
         name="Review Queue"
         component={ReviewQueueScreen}
         options={{
-          tabBarLabel: 'Review Queue',
+          tabBarLabel: 'Review',
           tabBarIcon: ({ color, size, focused }) => (
-            <ClipboardList size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <ClipboardList size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
 
-      {/* 3. Analytics Tab */}
-      <Tab.Screen
-        name="Analytics"
-        component={AnalyticsPlaceholderScreen}
-        options={{
-          tabBarLabel: 'Analytics',
-          tabBarIcon: ({ color, size, focused }) => (
-            <BarChart3 size={size} color={focused ? colors.primaryNavy : color} />
-          ),
-        }}
-      />
-
-      {/* 4. Alerts Tab */}
+      {/* 3. Alerts Tab */}
       <Tab.Screen
         name="Alerts"
         component={SupervisorAlertsScreen}
         options={{
           tabBarLabel: 'Alerts',
           tabBarIcon: ({ color, size, focused }) => (
-            <Bell size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <Bell size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
 
-      {/* 5. Profile Tab */}
+      {/* 4. Officer Activity Tab */}
       <Tab.Screen
-        name="Profile"
-        component={SupervisorProfileScreen}
+        name="OfficerActivity"
+        component={OfficerActivityScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Officers',
           tabBarIcon: ({ color, size, focused }) => (
-            <User size={size} color={focused ? colors.primaryNavy : color} />
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <Users size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
+          ),
+        }}
+      />
+
+      {/* 5. Cases Tab */}
+      <Tab.Screen
+        name="Cases"
+        component={SupervisorCasesScreen}
+        options={{
+          tabBarLabel: 'Cases',
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={styles.iconWrapper}>
+              {focused && <View style={styles.activeTopLine} />}
+              <FileText size={22} color={focused ? '#1D4ED8' : color} />
+            </View>
           ),
         }}
       />
@@ -88,18 +109,33 @@ export const SupervisorTabNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: Platform.OS === 'ios' ? 88 : 68,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-    paddingTop: 8,
+    borderTopColor: '#E2E8F0',
+    height: Platform.OS === 'ios' ? 84 : 64,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    paddingTop: 6,
     ...shadows.soft,
   },
   tabBarLabel: {
     fontFamily: typography.caption.fontFamily,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  iconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    paddingTop: 4,
+  },
+  activeTopLine: {
+    position: 'absolute',
+    top: -6,
+    width: 24,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#1D4ED8',
   },
 });
 

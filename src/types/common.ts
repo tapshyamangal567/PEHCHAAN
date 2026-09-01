@@ -1,6 +1,6 @@
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
-export type SystemStatus = 'ACTIVE' | 'PENDING' | 'ARCHIVED' | 'VERIFIED' | 'FLAGGED';
+export type SystemStatus = 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'ARCHIVED' | 'VERIFIED' | 'FLAGGED';
 
 export interface SecurityMetric {
   id: string;
