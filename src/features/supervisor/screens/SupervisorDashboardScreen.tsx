@@ -13,25 +13,30 @@ import { AppLogo } from '../../../components/ui/AppLogo';
 import { Avatar } from '../../../components/ui/Avatar';
 import { OnlineIndicator } from '../../../components/ui/OnlineIndicator';
 import { SectionHeader } from '../../../components/navigation/SectionHeader';
-import { ReviewCaseCard } from '../components/ReviewCaseCard';
-import { SupervisorReviewModal } from '../components/SupervisorReviewModal';
-import { RiskDistributionCard } from '../components/RiskDistributionCard';
-import { OfficerActivityRow } from '../components/OfficerActivityRow';
-import { AlertItemCard } from '../../officer/components/AlertItemCard';
+import { SupervisorMetricCard } from '../components/SupervisorMetricCard';
+import { RiskOverviewCard } from '../components/RiskOverviewCard';
+import { QuickActionCard } from '../components/QuickActionCard';
+import { CaseRowItem } from '../../officer/components/CaseRowItem';
+import { CaseDetailModal } from '../../officer/components/CaseDetailModal';
+import { OfficerCase } from '../../officer/data/mockOfficerData';
+import { DashboardService, DashboardSummary } from '../../../services/dashboardService';
 import { colors, typography, spacing, radius, shadows } from '../../../theme';
 import { useAuthStore } from '../../../store/useAuthStore';
-import {
-  SupervisorReviewCase,
-  ActiveOfficerItem,
-  EscalatedAlertItem,
-} from '../data/mockSupervisorData';
-import { DashboardService, DashboardSummary } from '../../../services/dashboardService';
 import {
   FadeInView,
   SlideUpView,
   StaggeredEntrance,
 } from '../../../utils/animations';
-import { AlertCircle, Inbox, RefreshCw } from 'lucide-react-native';
+import {
+  ClipboardList,
+  Bell,
+  Users,
+  FileCheck2,
+  AlertCircle,
+  Inbox,
+  RefreshCw,
+  Shield,
+} from 'lucide-react-native';
 
 export const SupervisorDashboardScreen = () => {
   const navigation = useNavigation<any>();
@@ -51,13 +56,10 @@ export const SupervisorDashboardScreen = () => {
     activeOfficersCount: 0,
     riskDistribution: { lowPercentage: 0, mediumPercentage: 0, highPercentage: 0 },
   });
-  const [reviewQueue, setReviewQueue] = useState<SupervisorReviewCase[]>([]);
-  const [officerActivity, setOfficerActivity] = useState<ActiveOfficerItem[]>([]);
-  const [escalatedAlerts, setEscalatedAlerts] = useState<EscalatedAlertItem[]>([]);
+  const [recentCases, setRecentCases] = useState<OfficerCase[]>([]);
+  const [selectedCase, setSelectedCase] = useState<OfficerCase | null>(null);
 
-  const [selectedCase, setSelectedCase] = useState<SupervisorReviewCase | null>(null);
-
-  const loadSupervisorDashboard = useCallback(async (isRefresh = false) => {
+  const loadDashboard = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -66,17 +68,13 @@ export const SupervisorDashboardScreen = () => {
     setError(null);
 
     try {
-      const [sumData, queueData, actData, alertsData] = await Promise.all([
+      const [sumData, casesData] = await Promise.all([
         DashboardService.getSummary(),
-        DashboardService.getReviewQueue(5),
-        DashboardService.getOfficerActivity(),
-        DashboardService.getEscalatedAlerts(4),
+        DashboardService.getRecentCases(4),
       ]);
 
       setSummary(sumData);
-      setReviewQueue(queueData);
-      setOfficerActivity(actData);
-      setEscalatedAlerts(alertsData);
+      setRecentCases(casesData);
     } catch (err: any) {
       console.warn('[Supervisor Dashboard] Error loading dashboard:', err?.message || err);
       setError('Unable to load checkpoint dashboard. Please check connection and try again.');
@@ -88,14 +86,9 @@ export const SupervisorDashboardScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      loadSupervisorDashboard();
-    }, [loadSupervisorDashboard])
+      loadDashboard();
+    }, [loadDashboard])
   );
-
-  const handleDecision = (decision: string, caseId: string) => {
-    // Refresh queue after decision
-    loadSupervisorDashboard(true);
-  };
 
   return (
     <ScreenContainer
@@ -105,7 +98,7 @@ export const SupervisorDashboardScreen = () => {
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => loadSupervisorDashboard(true)}
+          onRefresh={() => loadDashboard(true)}
           colors={[colors.primaryNavy]}
           tintColor={colors.primaryNavy}
         />
@@ -116,10 +109,12 @@ export const SupervisorDashboardScreen = () => {
         <View style={styles.brandingBox}>
           <AppLogo size="sm" showTagline={false} align="flex-start" />
           <View style={styles.headerTitleBox}>
-            <Text style={typography.h2}>Checkpoint Command</Text>
+            <Text style={typography.h2}>
+              Welcome, {user?.name?.split(' ')[0] || user?.username || 'Supervisor'}
+            </Text>
             <View style={styles.locationRow}>
               <Text style={typography.caption}>
-                {user?.checkpoint || 'Checkpoint Alpha'} • Supervisor Ops ({user?.badgeId || user?.username || 'SUP-1090'})
+                {user?.checkpoint || 'Checkpoint Alpha'} • Command Center ({user?.badgeId || user?.username || 'SUP-1090'})
               </Text>
               <OnlineIndicator label="PostgreSQL Active" size="sm" />
             </View>
@@ -140,38 +135,145 @@ export const SupervisorDashboardScreen = () => {
         <SlideUpView delay={110} style={styles.errorBanner}>
           <AlertCircle size={18} color={colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={() => loadSupervisorDashboard(true)} style={styles.retryBtn}>
+          <TouchableOpacity onPress={() => loadDashboard(true)} style={styles.retryBtn}>
             <RefreshCw size={14} color={colors.danger} />
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </SlideUpView>
       )}
 
-      {/* 2. PRIORITY REVIEW QUEUE (VISUAL PRIORITY FOR SUPERVISOR) */}
+      {/* 2. TODAY'S KEY METRICS (4 COMPACT CARDS) */}
       <SlideUpView delay={150} style={styles.section}>
+        <SectionHeader title="Today's Checkpoint Summary" />
+
+        <View style={styles.metricsGrid}>
+          {/* 1. Total Screened */}
+          <StaggeredEntrance index={0} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="TOTAL SCREENED"
+              value={summary.screenedToday}
+              loading={loading}
+              variant="default"
+            />
+          </StaggeredEntrance>
+
+          {/* 2. Cleared */}
+          <StaggeredEntrance index={1} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="CLEARED"
+              value={summary.clearedToday}
+              loading={loading}
+              variant="success"
+            />
+          </StaggeredEntrance>
+
+          {/* 3. Flagged */}
+          <StaggeredEntrance index={2} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="FLAGGED"
+              value={summary.flaggedToday}
+              loading={loading}
+              variant="danger"
+            />
+          </StaggeredEntrance>
+
+          {/* 4. Under Review */}
+          <StaggeredEntrance index={3} style={styles.metricWrapper}>
+            <SupervisorMetricCard
+              label="UNDER REVIEW"
+              value={summary.underReviewToday}
+              loading={loading}
+              variant="warning"
+            />
+          </StaggeredEntrance>
+        </View>
+      </SlideUpView>
+
+      {/* 3. COMPACT RISK OVERVIEW */}
+      <SlideUpView delay={220} style={styles.section}>
+        <RiskOverviewCard
+          low={summary.riskDistribution.lowPercentage}
+          medium={summary.riskDistribution.mediumPercentage}
+          high={summary.riskDistribution.highPercentage}
+          onPress={() => navigation.navigate('Cases')}
+        />
+      </SlideUpView>
+
+      {/* 4. QUICK ACTION CARDS (4 DEDICATED SECTIONS) */}
+      <SlideUpView delay={280} style={styles.section}>
+        <SectionHeader title="Control Center Sections" />
+
+        <View style={styles.quickActionGrid}>
+          {/* Card 1: Review Queue */}
+          <View style={styles.quickActionWrapper}>
+            <QuickActionCard
+              title="Review Queue"
+              subtitle="Evaluate flagged passports"
+              icon={<ClipboardList size={20} color={colors.danger} />}
+              badgeCount={summary.pendingReviewCount}
+              badgeVariant="danger"
+              onPress={() => navigation.navigate('Review Queue')}
+            />
+          </View>
+
+          {/* Card 2: Security Alerts */}
+          <View style={styles.quickActionWrapper}>
+            <QuickActionCard
+              title="Security Alerts"
+              subtitle="High risk anomaly alerts"
+              icon={<Bell size={20} color={colors.warning} />}
+              badgeCount={summary.flaggedToday}
+              badgeVariant="warning"
+              onPress={() => navigation.navigate('Alerts')}
+            />
+          </View>
+
+          {/* Card 3: Officer Activity */}
+          <View style={styles.quickActionWrapper}>
+            <QuickActionCard
+              title="Officer Activity"
+              subtitle="Field team throughput"
+              icon={<Users size={20} color={colors.primaryNavy} />}
+              badgeLabel={`${summary.activeOfficersCount} ACTIVE`}
+              badgeVariant="success"
+              onPress={() => navigation.navigate('OfficerActivity')}
+            />
+          </View>
+
+          {/* Card 4: Cases */}
+          <View style={styles.quickActionWrapper}>
+            <QuickActionCard
+              title="Screening Cases"
+              subtitle="Audit log & search"
+              icon={<FileCheck2 size={20} color={colors.primaryNavy} />}
+              badgeLabel={`${summary.totalVerifications} TOTAL`}
+              badgeVariant="default"
+              onPress={() => navigation.navigate('Cases')}
+            />
+          </View>
+        </View>
+      </SlideUpView>
+
+      {/* 5. COMPACT RECENT ACTIVITY (LATEST 3-4 RECORDS) */}
+      <SlideUpView delay={350} style={styles.section}>
         <SectionHeader
-          title="Cases Requiring Approval"
-          subtitle="High-risk and flagged cases escalated from PostgreSQL"
+          title="Recent Activity"
           rightAction={
-            <TouchableOpacity onPress={() => navigation.navigate('Review Queue')}>
-              <View style={styles.reviewBadge}>
-                <Text style={styles.reviewBadgeText}>
-                  {summary.pendingReviewCount} PENDING
-                </Text>
-              </View>
+            <TouchableOpacity onPress={() => navigation.navigate('Cases')}>
+              <Text style={styles.viewAllText}>View all</Text>
             </TouchableOpacity>
           }
         />
-        {loading && reviewQueue.length === 0 ? (
+        {loading && recentCases.length === 0 ? (
           <ActivityIndicator size="small" color={colors.primaryNavy} style={styles.loader} />
-        ) : reviewQueue.length === 0 ? (
+        ) : recentCases.length === 0 ? (
           <View style={styles.emptyStateBox}>
             <Inbox size={22} color={colors.mutedText} />
             <Text style={styles.emptyStateText}>No verification records yet.</Text>
           </View>
         ) : (
-          reviewQueue.slice(0, 3).map((caseData) => (
-            <ReviewCaseCard
+          recentCases.map((caseData) => (
+            <CaseRowItem
               key={caseData.id}
               caseData={caseData}
               onPress={() => setSelectedCase(caseData)}
@@ -180,146 +282,19 @@ export const SupervisorDashboardScreen = () => {
         )}
       </SlideUpView>
 
-      {/* 3. CHECKPOINT SUMMARY (4 METRIC CARDS) */}
-      <SlideUpView delay={250} style={styles.metricsSection}>
-        <SectionHeader title="Checkpoint Statistics" />
+      {/* 6. Footer System Status */}
+      <FadeInView delay={420} style={styles.systemStatusFooter}>
+        <Shield size={14} color={colors.mutedText} />
+        <Text style={styles.systemStatusText}>
+          PEHCHAAN Security Engine • PostgreSQL Connected
+        </Text>
+      </FadeInView>
 
-        <View style={styles.metricsGrid}>
-          {/* Total Screened */}
-          <StaggeredEntrance index={0} style={styles.metricCardWrapper}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>TOTAL SCREENED</Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.primaryNavy} style={styles.loader} />
-              ) : (
-                <Text style={[typography.h2, styles.metricValue]}>
-                  {summary.screenedToday.toLocaleString()}
-                </Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-
-          {/* Flagged */}
-          <StaggeredEntrance index={1} style={styles.metricCardWrapper}>
-            <View style={[styles.metricCard, styles.metricCardFlagged]}>
-              <Text style={[styles.metricLabel, { color: colors.danger }]}>
-                FLAGGED
-              </Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.danger} style={styles.loader} />
-              ) : (
-                <Text style={[typography.h2, { color: colors.danger }]}>
-                  {summary.flaggedToday}
-                </Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-
-          {/* Medium Risk */}
-          <StaggeredEntrance index={2} style={styles.metricCardWrapper}>
-            <View style={[styles.metricCard, styles.metricCardWarning]}>
-              <Text style={[styles.metricLabel, { color: colors.warning }]}>
-                UNDER REVIEW
-              </Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.warning} style={styles.loader} />
-              ) : (
-                <Text style={[typography.h2, { color: colors.warning }]}>
-                  {summary.underReviewToday}
-                </Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-
-          {/* Officers Active */}
-          <StaggeredEntrance index={3} style={styles.metricCardWrapper}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>OFFICERS ACTIVE</Text>
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.primaryNavy} style={styles.loader} />
-              ) : (
-                <Text style={[typography.h2, styles.metricValue]}>
-                  {summary.activeOfficersCount}
-                </Text>
-              )}
-            </View>
-          </StaggeredEntrance>
-        </View>
-      </SlideUpView>
-
-      {/* 4. RISK DISTRIBUTION BAR */}
-      <SlideUpView delay={300} style={styles.section}>
-        <RiskDistributionCard
-          low={summary.riskDistribution.lowPercentage}
-          medium={summary.riskDistribution.mediumPercentage}
-          high={summary.riskDistribution.highPercentage}
-        />
-      </SlideUpView>
-
-      {/* 5. TEAM ACTIVITY */}
-      <SlideUpView delay={350} style={styles.section}>
-        <SectionHeader
-          title="Officer Operations"
-          subtitle="Live screening throughput by registered checkpoint officers"
-        />
-        {loading && officerActivity.length === 0 ? (
-          <ActivityIndicator size="small" color={colors.primaryNavy} style={styles.loader} />
-        ) : officerActivity.length === 0 ? (
-          <View style={styles.emptyStateBox}>
-            <Inbox size={22} color={colors.mutedText} />
-            <Text style={styles.emptyStateText}>No officer operations recorded today.</Text>
-          </View>
-        ) : (
-          officerActivity.map((officer) => (
-            <OfficerActivityRow key={officer.id} officer={officer} />
-          ))
-        )}
-      </SlideUpView>
-
-      {/* 6. ESCALATED ALERTS */}
-      <SlideUpView delay={400} style={styles.section}>
-        <SectionHeader
-          title="Escalated Alerts"
-          rightAction={
-            <TouchableOpacity onPress={() => navigation.navigate('Alerts')}>
-              <Text style={styles.viewAllText}>View all</Text>
-            </TouchableOpacity>
-          }
-        />
-        {loading && escalatedAlerts.length === 0 ? (
-          <ActivityIndicator size="small" color={colors.primaryNavy} style={styles.loader} />
-        ) : escalatedAlerts.length === 0 ? (
-          <View style={styles.emptyStateBox}>
-            <Inbox size={22} color={colors.mutedText} />
-            <Text style={styles.emptyStateText}>No active security alerts.</Text>
-          </View>
-        ) : (
-          escalatedAlerts.map((alert) => (
-            <AlertItemCard
-              key={alert.id}
-              alert={{
-                id: alert.id,
-                caseId: alert.caseId,
-                title: alert.title,
-                description: 'Escalated to supervisor review queue.',
-                riskLevel: alert.riskLevel,
-                timestamp: alert.timestamp,
-              }}
-              onPress={() => {
-                const matched = reviewQueue.find((c) => c.caseId === alert.caseId);
-                if (matched) setSelectedCase(matched);
-              }}
-            />
-          ))
-        )}
-      </SlideUpView>
-
-      {/* SUPERVISOR REVIEW DECISION MODAL */}
-      <SupervisorReviewModal
+      {/* CASE DETAILS MODAL */}
+      <CaseDetailModal
         caseData={selectedCase}
         visible={!!selectedCase}
         onClose={() => setSelectedCase(null)}
-        onDecision={handleDecision}
       />
     </ScreenContainer>
   );
@@ -381,59 +356,23 @@ const styles = StyleSheet.create({
     color: colors.danger,
   },
   section: {
-    marginBottom: spacing.lg,
-  },
-  reviewBadge: {
-    backgroundColor: colors.dangerBg,
-    borderWidth: 1,
-    borderColor: 'rgba(180, 35, 24, 0.3)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-  },
-  reviewBadgeText: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 10,
-    color: colors.danger,
-    fontWeight: '700',
-  },
-  metricsSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  metricCardWrapper: {
+  metricWrapper: {
     width: '48%',
   },
-  metricCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    ...shadows.soft,
+  quickActionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  metricCardFlagged: {
-    backgroundColor: colors.dangerBg,
-    borderColor: 'rgba(180, 35, 24, 0.25)',
-  },
-  metricCardWarning: {
-    backgroundColor: colors.warningBg,
-    borderColor: 'rgba(183, 121, 31, 0.25)',
-  },
-  metricLabel: {
-    fontFamily: typography.label.fontFamily,
-    fontSize: 10,
-    color: colors.mutedText,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  metricValue: {
-    color: colors.primaryText,
-    fontWeight: '700',
+  quickActionWrapper: {
+    width: '48%',
   },
   loader: {
     marginVertical: spacing.md,
@@ -458,6 +397,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.secondaryNavy,
+  },
+  systemStatusFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  systemStatusText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: 11,
+    color: colors.mutedText,
   },
 });
 

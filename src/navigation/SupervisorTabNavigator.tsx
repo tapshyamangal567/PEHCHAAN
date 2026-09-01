@@ -4,11 +4,19 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SupervisorTabParamList } from './types';
 import { SupervisorDashboardScreen } from '../features/supervisor/screens/SupervisorDashboardScreen';
 import { ReviewQueueScreen } from '../features/supervisor/screens/ReviewQueueScreen';
-import { AnalyticsPlaceholderScreen } from '../features/supervisor/screens/AnalyticsPlaceholderScreen';
 import { SupervisorAlertsScreen } from '../features/supervisor/screens/SupervisorAlertsScreen';
+import { OfficerActivityScreen } from '../features/supervisor/screens/OfficerActivityScreen';
+import { SupervisorCasesScreen } from '../features/supervisor/screens/SupervisorCasesScreen';
 import { SupervisorProfileScreen } from '../features/supervisor/screens/SupervisorProfileScreen';
 import { colors, typography, shadows } from '../theme';
-import { LayoutDashboard, ClipboardList, BarChart3, Bell, User } from 'lucide-react-native';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Bell,
+  Users,
+  FileCheck2,
+  User,
+} from 'lucide-react-native';
 
 const Tab = createBottomTabNavigator<SupervisorTabParamList>();
 
@@ -40,26 +48,14 @@ export const SupervisorTabNavigator = () => {
         name="Review Queue"
         component={ReviewQueueScreen}
         options={{
-          tabBarLabel: 'Review Queue',
+          tabBarLabel: 'Review',
           tabBarIcon: ({ color, size, focused }) => (
             <ClipboardList size={size} color={focused ? colors.primaryNavy : color} />
           ),
         }}
       />
 
-      {/* 3. Analytics Tab */}
-      <Tab.Screen
-        name="Analytics"
-        component={AnalyticsPlaceholderScreen}
-        options={{
-          tabBarLabel: 'Analytics',
-          tabBarIcon: ({ color, size, focused }) => (
-            <BarChart3 size={size} color={focused ? colors.primaryNavy : color} />
-          ),
-        }}
-      />
-
-      {/* 4. Alerts Tab */}
+      {/* 3. Alerts Tab */}
       <Tab.Screen
         name="Alerts"
         component={SupervisorAlertsScreen}
@@ -71,14 +67,26 @@ export const SupervisorTabNavigator = () => {
         }}
       />
 
-      {/* 5. Profile Tab */}
+      {/* 4. Officer Activity Tab */}
       <Tab.Screen
-        name="Profile"
-        component={SupervisorProfileScreen}
+        name="OfficerActivity"
+        component={OfficerActivityScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Officers',
           tabBarIcon: ({ color, size, focused }) => (
-            <User size={size} color={focused ? colors.primaryNavy : color} />
+            <Users size={size} color={focused ? colors.primaryNavy : color} />
+          ),
+        }}
+      />
+
+      {/* 5. Cases Tab */}
+      <Tab.Screen
+        name="Cases"
+        component={SupervisorCasesScreen}
+        options={{
+          tabBarLabel: 'Cases',
+          tabBarIcon: ({ color, size, focused }) => (
+            <FileCheck2 size={size} color={focused ? colors.primaryNavy : color} />
           ),
         }}
       />

@@ -90,14 +90,21 @@ export type OfficerStackParamList = {
 export type SupervisorTabParamList = {
   Overview: undefined;
   'Review Queue': undefined;
-  Analytics: undefined;
   Alerts: undefined;
+  OfficerActivity: undefined;
+  Cases: undefined;
   Profile: undefined;
 };
 
 
 export type SupervisorStackParamList = {
   SupervisorMainTabs: undefined;
+  Overview: undefined;
+  'Review Queue': undefined;
+  Alerts: undefined;
+  OfficerActivity: undefined;
+  Cases: undefined;
+  Profile: undefined;
 };
 
 
