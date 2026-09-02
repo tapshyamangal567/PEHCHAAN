@@ -33,7 +33,7 @@ router = APIRouter()
         500: {"model": ErrorResponse, "description": "Internal server or OCR error"},
     },
     summary="Process and Extract Passport Information",
-    description="Accepts a passport data page image file, validates image content, runs EasyOCR and TD3 MRZ extraction, validates check digits, cross-checks fields, and returns structured data."
+    description="Accepts a passport data page image file, validates image content, runs lightweight OCR and TD3 MRZ extraction, validates check digits, cross-checks fields, and returns structured data."
 )
 async def process_passport(file: UploadFile = File(...)):
     start_time = time.time()
@@ -51,11 +51,11 @@ async def process_passport(file: UploadFile = File(...)):
         # 3. Preprocess Image for higher OCR accuracy
         preprocessed_image = image_service.preprocess_for_ocr(pil_image)
 
-        # 4. Perform General Optical Character Recognition (EasyOCR)
+        # 4. Perform Optical Character Recognition (Tesseract OCR)
         raw_text, avg_confidence, text_blocks = ocr_service.extract_text(preprocessed_image)
 
         # 5. Execute Dedicated Target MRZ Extraction Pipeline (Crop -> Variants -> Dedicated OCR -> Scoring)
-        mrz_pipeline_result = mrz_service.extract_mrz_from_image(pil_image, ocr_service.reader)
+        mrz_pipeline_result = mrz_service.extract_mrz_from_image(pil_image)
         
         mrz_parsed = None
         mrz_response_data = None

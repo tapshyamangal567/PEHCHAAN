@@ -6,13 +6,14 @@ import cv2
 from PIL import Image, ImageEnhance, ImageFilter
 
 from app.services.mrz_parser_service import mrz_parser_service
+from app.services.ocr_service import ocr_service
 
 logger = logging.getLogger("pehchaan.mrz_service")
 
 class MRZService:
     """
     Dedicated MRZ Extraction Pipeline for TD3 Passport Data Pages.
-    Steps: Multi-Region Detection -> Preprocessing Variants -> Dedicated EasyOCR ->
+    Steps: Multi-Region Detection -> Preprocessing Variants -> Lightweight OCR ->
            Line Reconstruction -> Candidate Scoring -> TD3 Validation.
     """
     DOCUMENT_LABEL_KEYWORDS = [
@@ -111,20 +112,24 @@ class MRZService:
         return cleaned
 
     @staticmethod
-    def extract_mrz_candidates_from_ocr(reader, image_np: np.ndarray) -> list[dict]:
+    def extract_mrz_candidates_from_ocr(reader_or_image, image_np: np.ndarray = None) -> list[dict]:
         """
-        Runs EasyOCR on an MRZ crop variant with allowlist: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<
-        Returns formatted text blocks with bounding boxes and confidences.
+        Extracts MRZ candidate blocks using lightweight OCR with character whitelist.
+        Supports both signatures for backward compatibility:
+        - extract_mrz_candidates_from_ocr(image_np)
+        - extract_mrz_candidates_from_ocr(reader, image_np)
         """
-        results = reader.readtext(image_np, allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<')
+        target_image = image_np if image_np is not None else reader_or_image
+        raw_blocks = ocr_service.extract_mrz_text(target_image)
+
         blocks = []
-        for bbox, text, prob in results:
-            cleaned = MRZService.normalize_mrz_line(text)
+        for b in raw_blocks:
+            cleaned = MRZService.normalize_mrz_line(b.get("text", ""))
             if cleaned:
                 blocks.append({
                     "text": cleaned,
-                    "confidence": float(prob),
-                    "bbox": [[int(pt[0]), int(pt[1])] for pt in bbox]
+                    "confidence": b.get("confidence", 0.0),
+                    "bbox": b.get("bbox", [])
                 })
         return blocks
 
@@ -239,10 +244,10 @@ class MRZService:
         return round(min(1.0, score), 4)
 
     @staticmethod
-    def extract_mrz_from_image(pil_image: Image.Image, easyocr_reader) -> dict:
+    def extract_mrz_from_image(pil_image: Image.Image, ocr_runner=None) -> dict:
         """
         Executes multi-region target MRZ pipeline on document image with early exit:
-        Candidate Crop Regions -> Preprocess Variants -> Dedicated EasyOCR -> Line Reconstruction -> Scoring.
+        Candidate Crop Regions -> Preprocess Variants -> Dedicated OCR -> Line Reconstruction -> Scoring.
         """
         debug_metadata = {
             "mrz_crop_created": False,
@@ -265,7 +270,7 @@ class MRZService:
 
                 for variant in variants:
                     total_variants += 1
-                    blocks = MRZService.extract_mrz_candidates_from_ocr(easyocr_reader, variant["image"])
+                    blocks = MRZService.extract_mrz_candidates_from_ocr(variant["image"])
                     lines = MRZService.reconstruct_lines_from_blocks(blocks)
 
                     for i in range(len(lines) - 1):

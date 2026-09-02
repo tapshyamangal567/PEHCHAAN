@@ -1,0 +1,5 @@
+# Railway / Nixpacks configuration for PEHCHAAN Backend
+# Ensures Tesseract OCR system binary & English trained data are installed
+
+[phases.setup]
+nixPkgs = ["tesseract"]
